@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 75.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "hermitage"
+version = "0.6.0"
+description = "A visually immersive, local-first media sanctuary for Calibre libraries."
+requires-python = ">= 3.14"
+license = "GPL-3.0-or-later"
+authors = [
+    { name = "Brandon LaRocque" },
+]
+dependencies = [
+    "PyGObject >= 3.54",
+    "Pillow >= 11.0",
+    "PyYAML >= 6.0",
+]
+
+[project.scripts]
+hermitage = "hermitage.__main__:main"
+hermitage-verify = "hermitage.verify:main"
+
+[tool.setuptools.packages.find]
+include = ["hermitage*"]
