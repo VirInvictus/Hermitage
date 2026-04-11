@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import html
 import re
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -16,7 +15,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
-from hermitage.database import Book, _library_root
+from hermitage.database import Book, library_root
 from hermitage.thumbnailer import get_cached_texture, request_texture
 
 # ---------------------------------------------------------------------------
@@ -79,7 +78,7 @@ _FORMAT_PRIORITY = ["EPUB", "PDF", "MOBI", "AZW3", "CBZ", "CBR", "DJVU", "TXT"]
 
 def _find_format_file(book: Book) -> Path | None:
     """Locate the best readable file for a book, preferring EPUB > PDF > etc."""
-    root = _library_root()
+    root = library_root()
     book_dir = root / book.path
 
     for fmt in _FORMAT_PRIORITY:
@@ -110,6 +109,7 @@ class CodexView(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._current_book: Book | None = None
+        self.on_dismiss = None
         self._build_ui()
 
     def _build_ui(self):
@@ -131,6 +131,17 @@ class CodexView(Gtk.Box):
         self._hero_bg.set_content_fit(Gtk.ContentFit.COVER)
         self._hero_bg.add_css_class("codex-hero-bg")
         self._hero.set_child(self._hero_bg)
+
+        # Dismiss button (top-right of hero)
+        dismiss_btn = Gtk.Button(icon_name="window-close-symbolic")
+        dismiss_btn.add_css_class("circular")
+        dismiss_btn.add_css_class("codex-dismiss")
+        dismiss_btn.set_valign(Gtk.Align.START)
+        dismiss_btn.set_halign(Gtk.Align.END)
+        dismiss_btn.set_margin_top(8)
+        dismiss_btn.set_margin_end(8)
+        dismiss_btn.connect("clicked", self._on_dismiss_clicked)
+        self._hero.add_overlay(dismiss_btn)
 
         # Content overlay: cover + text
         hero_content = Gtk.Box(
@@ -390,6 +401,11 @@ class CodexView(Gtk.Box):
             GLib.idle_add(_deliver)
 
         _executor.submit(_work)
+
+    def _on_dismiss_clicked(self, btn):
+        """Close the Codex sidebar."""
+        if self.on_dismiss:
+            self.on_dismiss()
 
     def _on_read_clicked(self, btn):
         """Launch the book in the system's default reader."""

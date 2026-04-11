@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from hermitage.codex import CodexView
-from hermitage.database import Book, build_search_index, load_library
+from hermitage.database import Book, load_library, load_virtual_libraries
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
+from hermitage.search import filter_books
 from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
 
 APP_ID = "dev.hermitage.Hermitage"
@@ -76,7 +79,7 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     """Create the widget tree for a single grid cell."""
     # Fixed-ratio frame prevents ragged rows
     frame = Gtk.AspectFrame(ratio=COVER_RATIO, obey_child=False)
-    frame.set_halign(Gtk.Align.CENTER)
+    frame.set_halign(Gtk.Align.FILL)
     frame.set_valign(Gtk.Align.START)
     frame.add_css_class("cover-frame")
 
@@ -86,12 +89,16 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
 
     picture = Gtk.Picture()
     picture.set_content_fit(Gtk.ContentFit.COVER)
+    picture.set_size_request(COVER_WIDTH, COVER_HEIGHT)
     picture.add_css_class("cover-art")
     overlay.set_child(picture)
 
     # Title label — shown on hover via CSS
-    label = Gtk.Label(xalign=0.5, wrap=True, wrap_mode=2, lines=2)  # WORD_CHAR
-    label.set_ellipsize(3)  # END
+    label = Gtk.Label(
+        xalign=0.5, wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=2,
+    )
+    label.set_ellipsize(Pango.EllipsizeMode.END)
     label.add_css_class("cover-title")
     label.set_valign(Gtk.Align.END)
     label.set_halign(Gtk.Align.FILL)
@@ -185,121 +192,7 @@ def _create_cover_factory() -> Gtk.SignalListItemFactory:
 # Application CSS
 # ---------------------------------------------------------------------------
 
-_CSS = """
-.cover-frame {
-    margin: 4px;
-}
-
-.cover-cell {
-    border-radius: 6px;
-    background-color: @card_shade_color;
-    transition: transform 150ms ease-in-out, box-shadow 200ms ease-in-out;
-}
-
-.cover-cell:hover {
-    transform: scale(1.04);
-    box-shadow: 0 4px 12px alpha(black, 0.3);
-}
-
-.cover-art {
-    border-radius: 6px;
-}
-
-.cover-title {
-    background: linear-gradient(to top,
-        alpha(black, 0.72),
-        alpha(black, 0.0));
-    color: white;
-    font-weight: bold;
-    font-size: 11px;
-    padding: 24px 6px 6px 6px;
-    border-radius: 0 0 6px 6px;
-    opacity: 0;
-    transition: opacity 200ms ease-in-out;
-}
-
-.cover-cell:hover .cover-title,
-.cover-cell:focus-within .cover-title {
-    opacity: 1;
-}
-
-gridview > child {
-    padding: 2px;
-}
-
-/* ---- Codex (Detail View) ---- */
-
-.codex-hero {
-    min-height: 280px;
-    background-color: @card_shade_color;
-}
-
-.codex-hero-cover-frame {
-    border-radius: 8px;
-    box-shadow: 0 4px 16px alpha(black, 0.5);
-}
-
-.codex-title {
-    font-size: 22px;
-    font-weight: 800;
-    color: white;
-    text-shadow: 0 2px 4px alpha(black, 0.7);
-}
-
-.codex-author {
-    font-size: 15px;
-    font-weight: 500;
-    color: alpha(white, 0.85);
-    text-shadow: 0 1px 3px alpha(black, 0.5);
-}
-
-.codex-series {
-    font-size: 13px;
-    font-style: italic;
-    color: alpha(white, 0.7);
-    text-shadow: 0 1px 3px alpha(black, 0.5);
-}
-
-.codex-rating {
-    font-size: 22px;
-    color: @accent_color;
-}
-
-.codex-section-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: alpha(@window_fg_color, 0.55);
-    letter-spacing: 1.5px;
-}
-
-.codex-tags flowboxchild {
-    padding: 0;
-}
-
-.codex-tag-pill {
-    background-color: alpha(@accent_bg_color, 0.15);
-    color: @accent_color;
-    border-radius: 99px;
-    padding: 4px 14px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.codex-synopsis {
-    font-size: 14px;
-}
-
-.codex-meta {
-    font-size: 12px;
-    color: alpha(@window_fg_color, 0.5);
-    font-weight: 500;
-}
-
-.codex-read-btn {
-    font-size: 15px;
-    padding: 8px 28px;
-}
-"""
+_CSS_PATH = Path(__file__).parent / "style.css"
 
 
 # ---------------------------------------------------------------------------
@@ -326,95 +219,146 @@ class HermitageApp(Adw.Application):
         win.set_title("Hermitage")
         win.set_default_size(1200, 800)
 
-        # Load CSS
+        self._load_css()
+        self._build_chrome(win)
+        self._setup_shortcuts(win)
+
+        # Codex detail view (created before library loads)
+        win._codex = CodexView()
+
+        # Loading state
+        status = Adw.StatusPage(
+            title="Loading Library...",
+            icon_name="library-symbolic",
+        )
+        win._toolbar_view.set_content(status)
+
+        GLib.idle_add(self._load_library, win)
+        return win
+
+    @staticmethod
+    def _load_css():
+        """Load the application stylesheet."""
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_string(_CSS)
+        css_provider.load_from_file(Gio.File.new_for_path(str(_CSS_PATH)))
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
-        # Toolbar view (headerbar + content)
+    @staticmethod
+    def _build_chrome(win: Adw.ApplicationWindow):
+        """Build the header bar, search bar, and toolbar view shell."""
         toolbar_view = Adw.ToolbarView()
+
+        # Header bar
         header = Adw.HeaderBar()
-        header.set_title_widget(Adw.WindowTitle(title="Hermitage", subtitle=""))
+        win._title_widget = Adw.WindowTitle(title="Hermitage", subtitle="")
+        header.set_title_widget(win._title_widget)
+
+        win._vl_btn = Gtk.ToggleButton(icon_name="view-list-symbolic")
+        win._vl_btn.set_tooltip_text("Virtual libraries (Ctrl+L)")
+        header.pack_start(win._vl_btn)
+
+        win._search_btn = Gtk.ToggleButton(icon_name="system-search-symbolic")
+        win._search_btn.set_tooltip_text("Search library (Ctrl+F)")
+        header.pack_start(win._search_btn)
+
         toolbar_view.add_top_bar(header)
 
-        # Status page shown while loading
-        status = Adw.StatusPage(
-            title="Loading Library...",
-            icon_name="library-symbolic",
+        # Search bar (slides below header)
+        search_bar = Gtk.SearchBar()
+        search_bar.set_show_close_button(True)
+
+        win._search_entry = Gtk.SearchEntry()
+        win._search_entry.set_placeholder_text(
+            "Search\u2026  title: authors: tags: series: formats: rating:",
         )
-        toolbar_view.set_content(status)
+        win._search_entry.set_hexpand(True)
+        win._search_entry.set_size_request(300, -1)
+
+        entry_clamp = Adw.Clamp(maximum_size=600)
+        entry_clamp.set_child(win._search_entry)
+        search_bar.set_child(entry_clamp)
+        search_bar.connect_entry(win._search_entry)
+
+        win._search_btn.bind_property(
+            "active", search_bar, "search-mode-enabled",
+            GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
+        )
+        toolbar_view.add_top_bar(search_bar)
+
+        win._toolbar_view = toolbar_view
         win.set_content(toolbar_view)
 
-        # Codex detail view (sidebar)
-        win._codex = CodexView()
+    def _setup_shortcuts(self, win: Adw.ApplicationWindow):
+        """Register keyboard shortcuts."""
+        ctrl = Gtk.ShortcutController()
+        ctrl.set_scope(Gtk.ShortcutScope.MANAGED)
 
-        # Store refs for breakpoint and library load
-        win._toolbar_view = toolbar_view
-        win._header = header
+        # Ctrl+F — toggle search
+        ctrl.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>f"),
+            action=Gtk.CallbackAction.new(
+                lambda *_: win._search_btn.set_active(
+                    not win._search_btn.get_active(),
+                ) or True,
+            ),
+        ))
 
-        # Load library in background
-        GLib.idle_add(self._load_library, win)
+        # Ctrl+L — toggle virtual library sidebar
+        ctrl.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>l"),
+            action=Gtk.CallbackAction.new(
+                lambda *_: win._vl_btn.set_active(
+                    not win._vl_btn.get_active(),
+                ) or True,
+            ),
+        ))
 
-        return win
+        # Escape — close codex, then search, then VL sidebar
+        def _on_escape(*_args):
+            if hasattr(win, "_split") and win._split.get_show_sidebar():
+                win._split.set_show_sidebar(False)
+                return True
+            if win._search_btn.get_active():
+                win._search_btn.set_active(False)
+                return True
+            if win._vl_btn.get_active():
+                win._vl_btn.set_active(False)
+                return True
+            return True
+
+        ctrl.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
+            action=Gtk.CallbackAction.new(_on_escape),
+        ))
+
+        win.add_controller(ctrl)
+
+    # -- library loading ----------------------------------------------------
 
     def _load_library(self, win: Adw.ApplicationWindow) -> bool:
-        toolbar_view = win._toolbar_view
-        header = win._header
-
+        """Load the Calibre database and build the full UI."""
         try:
             books = load_library()
         except FileNotFoundError as exc:
-            status = Adw.StatusPage(
+            win._toolbar_view.set_content(Adw.StatusPage(
                 title="Library Not Found",
                 description=str(exc),
                 icon_name="dialog-error-symbolic",
-            )
-            toolbar_view.set_content(status)
+            ))
             return GLib.SOURCE_REMOVE
 
-        store = Gio.ListStore.new(BookObject)
-        for b in books:
-            store.append(BookObject(b))
-
-        selection = Gtk.SingleSelection(model=store)
-        grid = Gtk.GridView(model=selection, factory=_create_cover_factory())
-        grid.set_min_columns(3)
-        grid.set_max_columns(12)
-        grid.add_css_class("sanctuary-grid")
-
-        scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
-        scrolled.set_child(grid)
-
-        # OverlaySplitView: grid as content, codex as sidebar
-        split = Adw.OverlaySplitView()
-        split.set_content(scrolled)
-        split.set_sidebar(win._codex)
-        split.set_sidebar_position(Gtk.PackType.END)
-        split.set_min_sidebar_width(360)
-        split.set_max_sidebar_width(460)
-        split.set_show_sidebar(False)
-        win._split = split
-
-        toolbar_view.set_content(split)
-
-        # Connect grid activation (click / Enter) to open the Codex
-        grid.connect("activate", self._on_book_activated, win)
-
-        # Store books list for later reference
         win._books = books
 
-        subtitle = f"{len(books)} books"
-        header.set_title_widget(Adw.WindowTitle(title="Hermitage", subtitle=subtitle))
+        grid = self._build_grid(win, books)
+        self._build_layout(win, grid)
+        self._wire_search(win)
 
-        # --- Breakpoints ---
+        win._title_widget.set_subtitle(f"{len(books)} books")
         self._setup_breakpoints(win, grid)
-
-        # Build FTS5 search index
-        build_search_index(books)
 
         # Pre-generate thumbnails and extract colors in background threads
         covers = [b.cover_path for b in books if b.cover_path and b.cover_path.is_file()]
@@ -423,11 +367,81 @@ class HermitageApp(Adw.Application):
 
         return GLib.SOURCE_REMOVE
 
+    def _build_grid(
+        self, win: Adw.ApplicationWindow, books: list[Book],
+    ) -> Gtk.GridView:
+        """Create the grid view with a filtered list model."""
+        store = Gio.ListStore.new(BookObject)
+        for b in books:
+            store.append(BookObject(b))
+
+        win._filter = Gtk.CustomFilter()
+        win._filtered_model = Gtk.FilterListModel(model=store, filter=win._filter)
+        selection = Gtk.SingleSelection(model=win._filtered_model)
+
+        grid = Gtk.GridView(model=selection, factory=_create_cover_factory())
+        grid.set_min_columns(3)
+        grid.set_max_columns(12)
+        grid.add_css_class("sanctuary-grid")
+        grid.connect("activate", self._on_book_activated, win)
+
+        return grid
+
+    def _build_layout(self, win: Adw.ApplicationWindow, grid: Gtk.GridView):
+        """Assemble the nested split-view layout."""
+        scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
+        scrolled.set_child(grid)
+
+        # Right sidebar: codex detail view
+        codex_split = Adw.OverlaySplitView()
+        codex_split.set_content(scrolled)
+        codex_split.set_sidebar(win._codex)
+        codex_split.set_sidebar_position(Gtk.PackType.END)
+        codex_split.set_min_sidebar_width(360)
+        codex_split.set_max_sidebar_width(460)
+        codex_split.set_show_sidebar(False)
+        win._split = codex_split
+        win._codex.on_dismiss = lambda: codex_split.set_show_sidebar(False)
+
+        # Left sidebar: virtual library list
+        vl_defs = load_virtual_libraries()
+        win._vl_defs = vl_defs
+        vl_cache: dict[str, object] = {}
+
+        def _vl_resolver(name: str):
+            from hermitage.search import parse_query as _parse
+            if name not in vl_cache:
+                expr_str = vl_defs.get(name)
+                vl_cache[name] = _parse(expr_str) if expr_str else None
+            return vl_cache.get(name)
+
+        win._vl_resolver = _vl_resolver
+
+        vl_sidebar = self._build_vl_sidebar(win)
+        vl_split = Adw.OverlaySplitView()
+        vl_split.set_content(codex_split)
+        vl_split.set_sidebar(vl_sidebar)
+        vl_split.set_sidebar_position(Gtk.PackType.START)
+        vl_split.set_min_sidebar_width(200)
+        vl_split.set_max_sidebar_width(260)
+        vl_split.set_show_sidebar(False)
+
+        win._vl_btn.bind_property(
+            "active", vl_split, "show-sidebar",
+            GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
+        )
+
+        win._toolbar_view.set_content(vl_split)
+
+    def _wire_search(self, win: Adw.ApplicationWindow):
+        """Connect the search entry to the filter pipeline."""
+        win._search_entry.connect("search-changed", self._on_search_changed, win)
+
+    # -- event handlers -----------------------------------------------------
+
+    @staticmethod
     def _on_book_activated(
-        self,
-        grid: Gtk.GridView,
-        position: int,
-        win: Adw.ApplicationWindow,
+        grid: Gtk.GridView, position: int, win: Adw.ApplicationWindow,
     ):
         """Handle grid item activation — populate and show the Codex."""
         obj: BookObject = grid.get_model().get_item(position)
@@ -436,14 +450,95 @@ class HermitageApp(Adw.Application):
         win._codex.show_book(obj.book)
         win._split.set_show_sidebar(True)
 
-    def _setup_breakpoints(self, win: Adw.ApplicationWindow, grid: Gtk.GridView):
+    @staticmethod
+    def _on_vl_activated(
+        listbox: Gtk.ListBox, row: Gtk.ListBoxRow,
+        win: Adw.ApplicationWindow,
+    ):
+        """Apply a virtual library filter when a sidebar row is clicked."""
+        vl_name = row._vl_name
+        if vl_name is None:
+            win._search_entry.set_text("")
+        else:
+            win._search_entry.set_text(f'vl:"{vl_name}"')
+            win._search_btn.set_active(True)
+
+    @staticmethod
+    def _on_search_changed(
+        entry: Gtk.SearchEntry, win: Adw.ApplicationWindow,
+    ):
+        """Re-filter the grid when the search text changes."""
+        query = entry.get_text().strip()
+
+        if not query:
+            win._filter.set_filter_func(None)
+            win._title_widget.set_subtitle(f"{len(win._books)} books")
+            return
+
+        matching_ids = {
+            b.id for b in filter_books(query, win._books, win._vl_resolver)
+        }
+        win._filter.set_filter_func(lambda item: item.book.id in matching_ids)
+
+        count = win._filtered_model.get_n_items()
+        win._title_widget.set_subtitle(f"{count} of {len(win._books)} books")
+
+    # -- builders -----------------------------------------------------------
+
+    def _build_vl_sidebar(self, win: Adw.ApplicationWindow) -> Gtk.Widget:
+        """Build the virtual library sidebar list."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        vl_header = Gtk.Label(label="Libraries", xalign=0)
+        vl_header.add_css_class("codex-section-title")
+        vl_header.set_margin_start(16)
+        vl_header.set_margin_top(12)
+        vl_header.set_margin_bottom(8)
+        box.append(vl_header)
+
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listbox.add_css_class("navigation-sidebar")
+
+        # "All Books" row
+        all_row = self._make_vl_row("All Books", None)
+        listbox.append(all_row)
+
+        for name in sorted(win._vl_defs.keys()):
+            listbox.append(self._make_vl_row(name, name))
+
+        listbox.select_row(all_row)
+        listbox.connect("row-activated", self._on_vl_activated, win)
+
+        scrolled = Gtk.ScrolledWindow(vexpand=True)
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_child(listbox)
+        box.append(scrolled)
+
+        return box
+
+    @staticmethod
+    def _make_vl_row(label_text: str, vl_name: str | None) -> Gtk.ListBoxRow:
+        """Create a single virtual library sidebar row."""
+        row = Gtk.ListBoxRow()
+        label = Gtk.Label(label=label_text, xalign=0)
+        label.set_margin_start(12)
+        label.set_margin_end(12)
+        label.set_margin_top(6)
+        label.set_margin_bottom(6)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        row.set_child(label)
+        row._vl_name = vl_name
+        return row
+
+    @staticmethod
+    def _setup_breakpoints(win: Adw.ApplicationWindow, grid: Gtk.GridView):
         """Configure responsive column scaling via Adw.Breakpoint."""
         def _uint(v: int) -> GObject.Value:
             val = GObject.Value(GObject.TYPE_UINT)
             val.set_uint(v)
             return val
 
-        # Narrow: phones / tight tiling (< 500px)
         bp_narrow = Adw.Breakpoint(
             condition=Adw.BreakpointCondition.parse("max-width: 500sp"),
         )
@@ -451,7 +546,6 @@ class HermitageApp(Adw.Application):
         bp_narrow.add_setter(grid, "max-columns", _uint(3))
         win.add_breakpoint(bp_narrow)
 
-        # Medium: tablets / half-screen (< 900px)
         bp_medium = Adw.Breakpoint(
             condition=Adw.BreakpointCondition.parse("max-width: 900sp"),
         )

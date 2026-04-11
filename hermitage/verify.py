@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from hermitage.database import Book, load_library, _library_root
+from hermitage.database import Book, load_library, library_root
 
 
 def verify_library():
@@ -14,7 +14,7 @@ def verify_library():
     t0 = time.perf_counter()
     books = load_library()
     load_ms = (time.perf_counter() - t0) * 1000
-    root = _library_root()
+    root = library_root()
 
     total = len(books)
     missing_dir = []

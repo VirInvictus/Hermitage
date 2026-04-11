@@ -29,7 +29,7 @@ class Book:
         """Absolute path to the cover image, or None."""
         if not self.has_cover:
             return None
-        return _library_root() / self.path / "cover.jpg"
+        return library_root() / self.path / "cover.jpg"
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,8 @@ ORDER BY b.sort COLLATE NOCASE
 _library_root_cache: Path | None = None
 
 
-def _library_root() -> Path:
+def library_root() -> Path:
+    """Return the Calibre library root directory."""
     global _library_root_cache
     if _library_root_cache is None:
         _library_root_cache = _resolve_library_path().parent
@@ -141,65 +142,25 @@ def load_library() -> list[Book]:
 
 
 # ---------------------------------------------------------------------------
-# FTS5 Search Index (in-memory)
+# Virtual Libraries
 # ---------------------------------------------------------------------------
 
-_fts_conn: sqlite3.Connection | None = None
-_fts_book_index: dict[int, int] = {}  # book.id -> position in books list
 
+def load_virtual_libraries() -> dict[str, str]:
+    """Read virtual library definitions from the Calibre preferences table.
 
-def build_search_index(books: list[Book]):
-    """Build an in-memory FTS5 index from loaded books."""
-    global _fts_conn, _fts_book_index
-    _fts_conn = sqlite3.connect(":memory:")
-    _fts_conn.execute(
-        "CREATE VIRTUAL TABLE books_fts USING fts5("
-        "  title, authors, tags, series,"
-        "  content='', contentless_delete=1,"
-        "  tokenize='unicode61 remove_diacritics 2'"
-        ")"
-    )
-    _fts_book_index.clear()
-    rows = []
-    for i, b in enumerate(books):
-        _fts_book_index[b.id] = i
-        rows.append((
-            b.id,
-            b.title,
-            " ".join(b.authors),
-            " ".join(t.replace(".", " ") for t in b.tags),
-            b.series or "",
-        ))
-    _fts_conn.executemany(
-        "INSERT INTO books_fts(rowid, title, authors, tags, series) "
-        "VALUES (?, ?, ?, ?, ?)",
-        rows,
-    )
-    _fts_conn.commit()
+    Returns a dict mapping library name -> Calibre search expression.
+    """
+    import json
 
-
-def search(query: str, books: list[Book], limit: int = 50) -> list[Book]:
-    """Search the FTS5 index. Returns matching books ranked by relevance."""
-    if not _fts_conn or not query.strip():
-        return []
-    # Append * for prefix matching so partial words work
-    terms = query.strip().split()
-    fts_query = " ".join(
-        f'"{t.replace(chr(34), "")}"*' for t in terms if t.replace('"', "")
-    )
-    if not fts_query:
-        return []
     try:
-        rows = _fts_conn.execute(
-            "SELECT rowid FROM books_fts WHERE books_fts MATCH ? "
-            "ORDER BY rank LIMIT ?",
-            (fts_query, limit),
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return []
-    results = []
-    for (rowid,) in rows:
-        idx = _fts_book_index.get(rowid)
-        if idx is not None:
-            results.append(books[idx])
-    return results
+        conn = _connect()
+        row = conn.execute(
+            "SELECT val FROM preferences WHERE key='virtual_libraries'",
+        ).fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0])
+    except Exception:
+        pass
+    return {}

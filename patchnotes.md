@@ -1,6 +1,127 @@
 # Hermitage — Patch Notes
 
-## v0.6.0 (2026-04-10) — Phase 3 Complete
+## v0.7.1 (2026-04-10) — Structural Cleanup
+
+---
+
+### Structural Changes
+
+**`app.py` decomposed into focused methods.** The monolithic `_load_library`
+method (~200 lines) has been split into purpose-named sub-methods:
+
+- `_build_grid()` — creates `ListStore`, `CustomFilter`, `FilterListModel`,
+  `GridView`, and wires the activation handler.
+- `_build_layout()` — assembles the nested `OverlaySplitView` stack (codex
+  right, VL left) and sets up the virtual library resolver.
+- `_wire_search()` — connects the search entry to the filter pipeline.
+- `_make_vl_row()` — extracted helper for VL sidebar row creation, replacing
+  two identical inline blocks.
+
+Event handlers (`_on_book_activated`, `_on_vl_activated`, `_on_search_changed`)
+converted to `@staticmethod` where possible.
+
+**Dead state tracking removed.** `_active_query` (str), `_active_vl` (str),
+`_store` (duplicate reference), and `_vl_listbox` (unused after build) were
+tracked as window attributes but never read. All four removed.
+
+**CSS extracted to `hermitage/style.css`.** The `_CSS` string literal
+(120 lines) was moved to a standalone `.css` file loaded via
+`Gio.File.new_for_path`. Added `[tool.setuptools.package-data]` in
+`pyproject.toml` to ensure the stylesheet is included in distributions.
+
+**`database.py` — public `library_root()` API.** The private `_library_root()`
+function renamed to `library_root()` since it's used by both `codex.py` and
+`verify.py`. `_library_root_cache` remains module-private.
+
+**`load_virtual_libraries()` moved to `database.py`.** Previously an inline
+lambda in `_load_library`, now a proper function in the database module
+alongside `load_library()`.
+
+**Dead FTS5 code removed.** The entire FTS5 full-text search subsystem
+(`build_search_index`, `search`, `_fts_conn`, `_fts_book_index`) was superseded
+by the recursive descent parser in v0.7.0 and has been removed from
+`database.py`.
+
+### Bug Fixes
+
+**`codex.py` — `on_dismiss` was a class variable.** `on_dismiss = None` on the
+class body meant all `CodexView` instances shared one callback slot. Moved to
+`__init__` as an instance variable.
+
+**`search.py` — mid-file import.** `from hermitage.database import Book` was
+inside a function body. Moved to the module's top-level imports.
+
+**`app.py` — magic numbers.** `wrap_mode=2` and `set_ellipsize(3)` replaced
+with `Pango.WrapMode.WORD_CHAR` and `Pango.EllipsizeMode.END`.
+
+**`codex.py` — unused `threading` import removed.**
+
+**`codex.py` — `_library_root` → `library_root`.** Updated to match the
+renamed public API in `database.py`.
+
+---
+
+## v0.7.0 (2026-04-10) — Phase 4 Complete
+
+---
+
+### New Features
+
+**Calibre-compatible search bar.** A `Gtk.SearchBar` slides below the header
+bar, triggered by the search toggle button or Ctrl+F. The search entry accepts
+Calibre's full query syntax:
+
+- Field prefixes: `tags:Fantasy`, `title:"1984"`, `authors:King`,
+  `series:`, `formats:EPUB`, `rating:5`
+- Exact match: `tags:"=Fic.Fantasy"` (prefix `=` inside quotes)
+- Boolean operators: `and`, `or`, `not` (case-insensitive)
+- Parentheses for grouping
+- Virtual library references: `vl:"Fantasy Wing"`
+- Bare text: searches across title, authors, tags, and series (implicit AND)
+
+The search bar is wrapped in an `Adw.Clamp(600px)` to keep it visually
+centered. The header subtitle updates to show `N of M books` while a filter
+is active.
+
+**New module: `hermitage/search.py`.** Self-contained recursive descent parser
+and evaluator for Calibre's search query language. Tokenizer splits input into
+words, quoted strings, colons, parens, and boolean keywords. Parser produces
+an AST of `FieldExpr`, `BareExpr`, `AndExpr`, `OrExpr`, and `NotExpr` nodes.
+Evaluator matches each node against `Book` fields with substring (default) or
+exact (`=` prefix) matching. `vl:` references are resolved lazily via a
+callback that loads and caches parsed expressions from the Calibre preferences
+table. Implicit AND handles multi-word bare searches
+(`stephen king` -> `stephen AND king`).
+
+Filtering uses `Gtk.CustomFilter` with `Gtk.FilterListModel` wrapping the
+`Gio.ListStore`. The filter function pre-computes a matching ID set via
+`filter_books()` for O(1) per-item lookup.
+
+**Virtual library sidebar.** A left-side `Adw.OverlaySplitView` (200-260px)
+presents all 19 virtual libraries loaded from the Calibre `preferences` table.
+The sidebar uses `Gtk.ListBox` with `navigation-sidebar` styling. An "All
+Books" row at the top clears the filter. Clicking a library populates the
+search bar with `vl:"Library Name"` and applies the corresponding search
+expression. Toggle via the header button or Ctrl+L.
+
+The sidebar nests inside the existing layout: `ToolbarView > VL SplitView
+(left) > Codex SplitView (right) > ScrolledWindow > GridView`.
+
+**Codex dismiss button.** A circular close button (`window-close-symbolic`)
+overlaid in the top-right corner of the hero banner with a semi-transparent
+dark background. Clicking it hides the codex sidebar.
+
+**Keyboard shortcuts.** Registered via `Gtk.ShortcutController` on the window:
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+F   | Toggle search bar |
+| Ctrl+L   | Toggle virtual library sidebar |
+| Escape   | Close codex, then search, then VL sidebar (priority order) |
+
+---
+
+## v0.6.1 (2026-04-10) — Phase 3 Complete
 
 ---
 
@@ -72,6 +193,13 @@ executor for blur generation, separate from the thumbnailer's pool.
 silently accepted on some GTK builds but crashed with an `Adwaita-ERROR` on
 GNOME 50 / Libadwaita 1.7. Replaced with `GObject.Value(GObject.TYPE_UINT)`
 constructed via `set_uint()`.
+
+**Grid covers collapsed to dots on first render.** `Gtk.Picture` with no
+paintable set (before async thumbnail delivery) has zero intrinsic size.
+`AspectFrame` computed its layout from that zero, so every cell collapsed to a
+tiny dot. Added `set_size_request(180, 270)` on the picture to guarantee a
+minimum cell size matching the 2:3 cover ratio, independent of texture load
+state.
 
 ---
 
@@ -309,8 +437,8 @@ joined query loads books with their authors, series, tags, ratings, comments,
 and available formats in one pass. Results are mapped to a `Book` dataclass
 using `slots=True` for memory efficiency.
 
-- Library path is resolved via the `HERMITAGE_DB` environment variable, falling
-  back to `~/docs/Calibre Library/metadata.db`.
+- Library path is resolved via the `HERMITAGE_DB` environment variable or
+  the config file at `~/.config/hermitage/config.yaml`.
 - `Book.cover_path` property computes the absolute path to `cover.jpg` from
   the Calibre-relative `path` column.
 - The query uses `GROUP_CONCAT(DISTINCT ...)` to collapse the many-to-many
