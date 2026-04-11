@@ -53,7 +53,7 @@ Top-level categories appear as cards. Mid-level branches appear as labeled subse
 ## Screenshot
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/b7c5da24-5b4e-4507-b16c-9e622d087f2b" alt="DeaDBeeF CUI Plugin Screenshot" style="max-width: 100%; border-radius: 8px;">
+  <img src="https://github.com/user-attachments/assets/abad1033-2ba3-4ce2-92d8-a283b8e9d5ed" alt="DeaDBeeF CUI Plugin Screenshot" style="max-width: 100%; border-radius: 8px;">
 </p>
 
 ## Requirements
