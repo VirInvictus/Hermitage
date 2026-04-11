@@ -33,6 +33,12 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 | **Keyboard shortcuts** | Ctrl+F (search), Ctrl+L (libraries), Escape (dismiss codex / search / sidebar). |
 | **100% local** | Zero telemetry, zero network calls, zero user accounts. Your library stays on your disk. |
 
+## Screenshot
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b7c5da24-5b4e-4507-b16c-9e622d087f2b" alt="DeaDBeeF CUI Plugin Screenshot" style="max-width: 100%; border-radius: 8px;">
+</p>
+
 ## Requirements
 
 **Python 3.14+** with:
