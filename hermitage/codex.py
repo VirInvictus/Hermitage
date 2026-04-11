@@ -110,6 +110,7 @@ class CodexView(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._current_book: Book | None = None
         self.on_dismiss = None
+        self.on_search = None  # callback(query_str) — populate search bar
         self._build_ui()
 
     def _build_ui(self):
@@ -177,17 +178,27 @@ class CodexView(Gtk.Box):
         self._title_label.add_css_class("codex-title")
         hero_text.append(self._title_label)
 
+        self._author_btn = Gtk.Button()
+        self._author_btn.add_css_class("codex-author")
+        self._author_btn.add_css_class("codex-link-btn")
+        self._author_btn.set_halign(Gtk.Align.START)
         self._author_label = Gtk.Label(xalign=0)
         self._author_label.set_wrap(True)
         self._author_label.set_lines(2)
         self._author_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self._author_label.add_css_class("codex-author")
-        hero_text.append(self._author_label)
+        self._author_btn.set_child(self._author_label)
+        self._author_btn.connect("clicked", self._on_author_clicked)
+        hero_text.append(self._author_btn)
 
+        self._series_btn = Gtk.Button()
+        self._series_btn.add_css_class("codex-series")
+        self._series_btn.add_css_class("codex-link-btn")
+        self._series_btn.set_halign(Gtk.Align.START)
         self._series_label = Gtk.Label(xalign=0)
         self._series_label.set_wrap(True)
-        self._series_label.add_css_class("codex-series")
-        hero_text.append(self._series_label)
+        self._series_btn.set_child(self._series_label)
+        self._series_btn.connect("clicked", self._on_series_clicked)
+        hero_text.append(self._series_btn)
 
         hero_content.append(hero_text)
         self._hero.add_overlay(hero_content)
@@ -279,9 +290,9 @@ class CodexView(Gtk.Box):
                 else book.series_index
             )
             self._series_label.set_text(f"{book.series} #{idx}")
-            self._series_label.set_visible(True)
+            self._series_btn.set_visible(True)
         else:
-            self._series_label.set_visible(False)
+            self._series_btn.set_visible(False)
 
         # Rating (Calibre stores 0-10, display as 5-star)
         if book.rating:
@@ -298,8 +309,10 @@ class CodexView(Gtk.Box):
             self._tags_header.set_visible(True)
             self._tags_flow.set_visible(True)
             for tag in book.tags:
-                pill = Gtk.Label(label=tag.strip())
+                pill = Gtk.Button(label=tag.strip())
                 pill.add_css_class("codex-tag-pill")
+                pill.add_css_class("codex-link-btn")
+                pill.connect("clicked", self._on_tag_clicked, tag.strip())
                 self._tags_flow.append(pill)
         else:
             self._tags_header.set_visible(False)
@@ -406,6 +419,24 @@ class CodexView(Gtk.Box):
         """Close the Codex sidebar."""
         if self.on_dismiss:
             self.on_dismiss()
+
+    def _on_author_clicked(self, btn):
+        """Search for the current book's author."""
+        book = self._current_book
+        if book and book.authors and self.on_search:
+            author = book.authors[0]
+            self.on_search(f'authors:"{author}"')
+
+    def _on_series_clicked(self, btn):
+        """Search for the current book's series."""
+        book = self._current_book
+        if book and book.series and self.on_search:
+            self.on_search(f'series:"{book.series}"')
+
+    def _on_tag_clicked(self, btn, tag: str):
+        """Search for a specific tag."""
+        if self.on_search:
+            self.on_search(f'tags:"{tag}"')
 
     def _on_read_clicked(self, btn):
         """Launch the book in the system's default reader."""

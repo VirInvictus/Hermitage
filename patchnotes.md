@@ -1,5 +1,118 @@
 # Hermitage — Patch Notes
 
+## v0.8.0 (2026-04-11) — Phases 5 & 6 Complete
+
+---
+
+### New Features
+
+**YAML configuration system.** All settings are stored in
+`~/.config/hermitage/config.yaml` — human-readable and editable in any text
+editor. The config file stores library path, sort field, and sort direction.
+The `HERMITAGE_DB` environment variable still works as a highest-priority
+override. Precedence: env var > config file > first-run wizard.
+
+**New module: `hermitage/config.py`.** Manages loading, saving, and caching
+the YAML config file. Provides `load_config()`, `save_config()`, `get()`,
+`set_value()`, and `reload_config()` APIs. Defaults are merged on first load.
+
+**First-run setup wizard.** On launch with no config file and no
+`HERMITAGE_DB` env var, an `Adw.Window` prompts the user to select their
+Calibre library folder via `Gtk.FileDialog.select_folder()`. Validates that
+`metadata.db` exists in the chosen directory before writing the config and
+proceeding to the main window. No more hardcoded library path assumptions.
+
+**New module: `hermitage/wizard.py`.** Self-contained `SetupWizard` window
+with folder picker, path validation, error display, and config write-through.
+
+**Settings page.** `Adw.PreferencesWindow` accessible from the header bar's
+hamburger menu (Preferences). Sections for library path (with a "Change"
+button and folder picker) and display settings (sort field dropdown, ascending
+toggle). Sort changes take effect immediately without restart. Library path
+changes require a restart (shown as a toast notification).
+
+**New module: `hermitage/preferences.py`.** `PreferencesWindow` reads and
+writes the same YAML config file. Fires an `on_settings_changed` callback
+that triggers an immediate grid re-sort.
+
+**Sort options.** Header bar sort menu button (`view-sort-descending-symbolic`)
+with six sort fields:
+
+| Field | Sorts by |
+|-------|----------|
+| Title | `book.sort` (Calibre's sort-friendly title) |
+| Author | First author name, alphabetical |
+| Date Added | `books.timestamp` (Calibre's date-added field) |
+| Publication Date | `book.pubdate` |
+| Rating | Calibre rating (0-10 scale) |
+| Series | Series name, then `series_index` within series |
+
+Ascending/descending toggle updates the sort icon in the header bar. Sort
+preference is persisted to config. Implemented via stateful `Gio.SimpleAction`
+with `GLib.Variant` state management.
+
+**Auto-sort by series order.** When the search query starts with `series:`,
+the grid automatically re-sorts by `series_index` so books appear in reading
+order regardless of the global sort setting. Clearing the search restores
+the configured sort.
+
+**Genre browser.** A new full-page view (`GenreBrowser`) accessible via the
+bookmarks toggle button in the header bar. Displays all Calibre tags organized
+by their dot-separated hierarchy:
+
+- Top-level categories (Fic, NonFic, Gaming, etc.) as `Adw.Card`-styled
+  sections with total book counts
+- Sub-genres as clickable accent-colored pills with individual counts
+- Tooltips on pills that have further sub-categories
+- Clicking any genre pill populates the search bar with `tags:"path"` and
+  switches back to the grid view
+- Crossfade transition between grid and genre views via `Gtk.Stack`
+
+**New module: `hermitage/genres.py`.** Builds a tag tree from dot-separated
+Calibre tags, counts books at each level, and renders the tree as an
+attractive card-based layout with `Gtk.FlowBox` pill buttons.
+
+**Clickable metadata in the Codex.** Author names, series names, and tag
+pills in the detail sidebar are now buttons. Clicking them populates the
+search bar with the corresponding field filter:
+
+- Author → `authors:"Author Name"`
+- Series → `series:"Series Name"`
+- Tag pill → `tags:"Tag.Path"`
+
+Styled with a new `.codex-link-btn` CSS class that removes button chrome
+(background, border, shadow) and adds a subtle hover opacity effect.
+
+**Search debounce.** Search filtering now waits 400ms after the last keystroke
+before re-filtering the grid, preventing jarring visual updates during
+typing. Clearing the search bar applies immediately (no debounce on empty).
+The debounce timer is reset on each keystroke via `GLib.timeout_add` /
+`GLib.source_remove`.
+
+**Clean Ctrl+C exit.** `SIGINT` is now handled in `__main__.py` with
+`signal.signal(signal.SIGINT, ...)` — pressing Ctrl+C in the terminal exits
+the process cleanly instead of printing a wall of GTK error traces.
+
+### Data Model Changes
+
+**`Book.timestamp` field added.** The `books.timestamp` column (Calibre's
+"date added" field) is now included in the SQL query and stored on the `Book`
+dataclass. Used by the "Date Added" sort option.
+
+### Structural Changes
+
+**`database.py` library path resolution rewritten.** `_resolve_library_path()`
+now follows the precedence chain: `HERMITAGE_DB` env var > `library_path`
+from config file > `FileNotFoundError` (triggers the wizard). The hardcoded
+fallback to `~/docs/Calibre Library/` has been removed.
+
+**Header bar expanded.** Four buttons on the left (VL sidebar, search, genre
+browser), sort menu and hamburger menu on the right. Sort menu uses
+`Gio.Menu` with a stateful radio-style action for field selection and a
+toggle action for ascending/descending.
+
+---
+
 ## v0.7.1 (2026-04-10) — Structural Cleanup
 
 ---

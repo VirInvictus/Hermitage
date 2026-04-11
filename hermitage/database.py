@@ -23,6 +23,7 @@ class Book:
     comment: str | None = None
     formats: list[str] = field(default_factory=list)
     pubdate: str | None = None
+    timestamp: str | None = None  # date added to Calibre
 
     @property
     def cover_path(self) -> Path | None:
@@ -45,6 +46,7 @@ SELECT
     b.has_cover,
     b.series_index,
     b.pubdate,
+    b.timestamp,
     GROUP_CONCAT(DISTINCT a.name)       AS authors,
     s.name                              AS series,
     r.rating                            AS rating,
@@ -82,7 +84,8 @@ def library_root() -> Path:
 
 
 def _resolve_library_path() -> Path:
-    """Locate the metadata.db via env var or default path."""
+    """Locate metadata.db. Precedence: env var > config file > error."""
+    # 1. Environment variable override
     env = os.environ.get("HERMITAGE_DB")
     if env:
         p = Path(env).expanduser().resolve()
@@ -90,12 +93,22 @@ def _resolve_library_path() -> Path:
             return p
         raise FileNotFoundError(f"HERMITAGE_DB points to missing file: {p}")
 
-    default = Path.home() / "docs" / "Calibre Library" / "metadata.db"
-    if default.is_file():
-        return default
+    # 2. Config file
+    from hermitage.config import get as cfg_get
+    lib_path = cfg_get("library_path", "")
+    if lib_path:
+        p = Path(lib_path).expanduser().resolve()
+        db = p / "metadata.db"
+        if db.is_file():
+            return db
+        # Config points somewhere but the file is missing
+        raise FileNotFoundError(
+            f"Configured library path has no metadata.db: {p}",
+        )
+
+    # 3. No config — app should show first-run wizard
     raise FileNotFoundError(
-        "No metadata.db found. Set HERMITAGE_DB or place a Calibre library "
-        f"at {default.parent}"
+        "No library configured. Run Hermitage to set up your Calibre library.",
     )
 
 
@@ -137,6 +150,7 @@ def load_library() -> list[Book]:
             comment=r["comment"],
             formats=r["formats"].split(",") if r["formats"] else [],
             pubdate=r["pubdate"],
+            timestamp=r["timestamp"],
         ))
     return books
 

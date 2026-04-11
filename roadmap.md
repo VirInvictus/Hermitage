@@ -33,16 +33,21 @@
 - [x] **Dismiss details button:** Close button overlaid on the Codex hero banner (top-right, circular, semi-transparent).
 
 ## Phase 5: Configuration & First Run
-- [ ] **YAML config file:** `~/.config/hermitage/config.yaml` as the single source of truth. Stores library path, default sort order, grid density, and any future preferences. Human-readable and editable in any text editor.
-- [ ] **First-run wizard:** On launch with no config file, present an `Adw.Window` that walks the user through selecting a Calibre library directory (file chooser) and writes the initial config. No assumptions about where the library lives.
-- [ ] **Settings page:** In-app `Adw.PreferencesWindow` that reads and writes the same YAML config file. Sections for library path, sort order, and display preferences. Changes take effect immediately where possible, or prompt a restart.
-- [ ] **Config migration:** `HERMITAGE_DB` environment variable still works as an override, but the wizard and settings page write to the YAML file. Precedence: env var > config file > wizard prompt.
+- [x] **Clean Ctrl+C exit:** `SIGINT` handler in `__main__.py` exits cleanly instead of spewing GTK error traces.
+- [x] **Search debounce:** 400ms debounce on keystroke — grid doesn't re-filter until you stop typing. Clearing the search bar applies immediately.
+- [x] **Clickable Codex metadata:** Clicking the author name, series, or any tag pill in the Codex populates the search bar with the corresponding filter (`authors:"Name"`, `series:"Name"`, `tags:"Tag"`).
+- [x] **Tags as genre:** Tags are surfaced as the genre system throughout the UI.
+- [x] **Genre browser:** Attractive category page (`GenreBrowser`) showing all tags organized by dot-separated hierarchy with book counts. Top-level categories as cards, sub-genres as clickable pills. Accessible via header bar toggle button.
+- [x] **YAML config file:** `~/.config/hermitage/config.yaml` as the single source of truth. Stores library path, default sort order, grid density, and any future preferences. Human-readable and editable in any text editor.
+- [x] **First-run wizard:** On launch with no config file, present an `Adw.Window` that walks the user through selecting a Calibre library directory (file chooser) and writes the initial config. No assumptions about where the library lives.
+- [x] **Settings page:** In-app `Adw.PreferencesWindow` that reads and writes the same YAML config file. Sections for library path, sort order, and display preferences. Sort changes take effect immediately.
+- [x] **Config migration:** `HERMITAGE_DB` environment variable still works as an override, but the wizard and settings page write to the YAML file. Precedence: env var > config file > wizard prompt.
 
 ## Phase 6: Sort & Browse
-- [ ] **Sort options:** Header bar dropdown or menu to sort by title (current default), author, date added, publication date, rating, and series order. Sort direction toggle (ascending/descending). Persisted to config.
-- [ ] **Series browsing:** When browsing a series, books are sorted by `series_index` regardless of the global sort. Series name shown as a group header or badge.
-- [ ] **Author grouping:** Option to group the grid by author, with author name as a section header above their books.
-- [ ] **Tag hierarchy browsing:** Calibre tags use dot-separated hierarchies (e.g., `Fic.Fantasy.Grimdark`). Expose this tree structure in the VL sidebar or a dedicated tag browser, allowing drill-down filtering.
+- [x] **Sort options:** Header bar sort menu with six fields (title, author, date added, publication date, rating, series) and ascending/descending toggle. Sort icon updates to reflect direction. Persisted to config. Also accessible from the preferences page.
+- [x] **Series browsing:** When filtering by `series:`, the grid auto-sorts by `series_index` regardless of the global sort setting. Clearing the search restores the configured sort.
+- [x] **Tag hierarchy browsing:** Genre browser exposes the full dot-separated tag tree (e.g., `Fic.Fantasy.Grimdark`) as nested cards with clickable pills. Clicking any genre filters the grid and switches back to the grid view.
+- [x] **Author/series browse via Codex:** Clicking author or series in the detail view populates the search, effectively browsing by that dimension.
 
 ## Phase 7: Empty States & Error Resilience
 - [ ] **Placeholder covers:** Generate a styled placeholder for books without `cover.jpg` — display the title and author on a tinted card using the dominant color of the app accent or a neutral tone. No more invisible cells.
@@ -66,6 +71,7 @@
 - [ ] **Accessibility:** Ensure keyboard navigation works end-to-end (grid focus, codex navigation, search, VL sidebar). Screen reader labels on interactive elements.
 
 ## Phase 10: Packaging & 1.0 Release
+- [ ] **Stats Section:** Attractive page of "widgets" that can be added or removed of statistics about their collection. We can be creative here.
 - [ ] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme.
 - [ ] **Desktop entry:** `dev.hermitage.Hermitage.desktop` file with proper categories, icon reference, and `StartupWMClass`.
 - [ ] **AppStream metadata:** `dev.hermitage.Hermitage.metainfo.xml` with screenshots, release notes, and OARS content rating for software center listings.

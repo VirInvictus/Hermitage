@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import gi
@@ -12,9 +13,11 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from hermitage.codex import CodexView
+from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
 from hermitage.database import Book, load_library, load_virtual_libraries
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
-from hermitage.search import filter_books
+from hermitage.genres import GenreBrowser
+from hermitage.search import filter_books, parse_query
 from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
 
 APP_ID = "dev.hermitage.Hermitage"
@@ -196,6 +199,36 @@ _CSS_PATH = Path(__file__).parent / "style.css"
 
 
 # ---------------------------------------------------------------------------
+# Sorting
+# ---------------------------------------------------------------------------
+
+
+def _sort_key(book: Book, field: str):
+    """Return a comparable sort key for the given field."""
+    if field == "title":
+        return book.sort.lower()
+    elif field == "author":
+        return (book.authors[0].lower() if book.authors else "")
+    elif field == "date_added":
+        return book.timestamp or ""
+    elif field == "pubdate":
+        return book.pubdate or ""
+    elif field == "rating":
+        return book.rating or 0
+    elif field == "series":
+        return (book.series or "", book.series_index)
+    return book.sort.lower()
+
+
+def _sort_books(books: list[BookObject], field: str, ascending: bool):
+    """Sort a list of BookObjects in place."""
+    books.sort(
+        key=lambda obj: _sort_key(obj.book, field),
+        reverse=not ascending,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
 
@@ -206,10 +239,79 @@ class HermitageApp(Adw.Application):
     def __init__(self):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
 
-    def do_activate(self):
+        prefs_action = Gio.SimpleAction(name="preferences")
+        prefs_action.connect("activate", self._on_preferences)
+        self.add_action(prefs_action)
+
+        # Sort field action (stateful string)
+        from hermitage.config import get as cfg_get
+        sort_field_action = Gio.SimpleAction.new_stateful(
+            "sort-field",
+            GLib.VariantType.new("s"),
+            GLib.Variant("s", cfg_get("sort_field", "title")),
+        )
+        sort_field_action.connect("activate", self._on_sort_field_action)
+        self.add_action(sort_field_action)
+
+        # Sort ascending action (stateful toggle)
+        sort_asc_action = Gio.SimpleAction.new_stateful(
+            "sort-ascending",
+            None,
+            GLib.Variant("b", cfg_get("sort_ascending", True)),
+        )
+        sort_asc_action.connect("activate", self._on_sort_ascending_action)
+        self.add_action(sort_asc_action)
+
+    def _on_sort_field_action(self, action, param):
+        field = param.get_string()
+        action.set_state(param)
+        from hermitage.config import set_value
+        set_value("sort_field", field)
+        win = self.props.active_window
+        if win and hasattr(win, "_store"):
+            self._resort_grid(win)
+
+    def _on_sort_ascending_action(self, action, param):
+        current = action.get_state().get_boolean()
+        new_val = not current
+        action.set_state(GLib.Variant("b", new_val))
+        from hermitage.config import set_value
+        set_value("sort_ascending", new_val)
+        win = self.props.active_window
+        if win and hasattr(win, "_store"):
+            self._resort_grid(win)
+            # Update sort icon direction
+            icon = "view-sort-ascending-symbolic" if new_val else "view-sort-descending-symbolic"
+            win._sort_btn.set_icon_name(icon)
+
+    def _on_preferences(self, action, param):
         win = self.props.active_window
         if not win:
-            win = self._build_window()
+            return
+
+        from hermitage.preferences import PreferencesWindow
+
+        def _on_settings_changed():
+            if hasattr(win, "_books"):
+                self._resort_grid(win)
+
+        prefs = PreferencesWindow(win, on_settings_changed=_on_settings_changed)
+        prefs.present()
+
+    def do_activate(self):
+        win = self.props.active_window
+        if win:
+            win.present()
+            return
+
+        import os
+        if not config_exists() and not os.environ.get("HERMITAGE_DB"):
+            from hermitage.wizard import SetupWizard
+            wizard = SetupWizard(self)
+            wizard.present()
+            return
+
+        win = self._build_window()
         win.present()
 
     # -- window construction ------------------------------------------------
@@ -265,6 +367,10 @@ class HermitageApp(Adw.Application):
         win._search_btn.set_tooltip_text("Search library (Ctrl+F)")
         header.pack_start(win._search_btn)
 
+        win._genre_btn = Gtk.ToggleButton(icon_name="user-bookmarks-symbolic")
+        win._genre_btn.set_tooltip_text("Browse genres")
+        header.pack_start(win._genre_btn)
+
         toolbar_view.add_top_bar(header)
 
         # Search bar (slides below header)
@@ -288,6 +394,38 @@ class HermitageApp(Adw.Application):
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
         toolbar_view.add_top_bar(search_bar)
+
+        # Sort menu button (right side)
+        sort_menu = Gio.Menu()
+        sort_section = Gio.Menu()
+        for key, label in [
+            ("title", "Title"),
+            ("author", "Author"),
+            ("date_added", "Date Added"),
+            ("pubdate", "Publication Date"),
+            ("rating", "Rating"),
+            ("series", "Series"),
+        ]:
+            sort_section.append(label, f"app.sort-field::{key}")
+        sort_menu.append_section("Sort By", sort_section)
+
+        dir_section = Gio.Menu()
+        dir_section.append("Ascending", "app.sort-ascending")
+        sort_menu.append_section(None, dir_section)
+
+        sort_btn = Gtk.MenuButton(icon_name="view-sort-descending-symbolic")
+        sort_btn.set_tooltip_text("Sort order")
+        sort_btn.set_menu_model(sort_menu)
+        header.pack_end(sort_btn)
+        win._sort_btn = sort_btn
+
+        # Menu button (right side)
+        menu_btn = Gtk.MenuButton(icon_name="open-menu-symbolic")
+        menu_btn.set_tooltip_text("Main menu")
+        menu = Gio.Menu()
+        menu.append("Preferences", "app.preferences")
+        menu_btn.set_menu_model(menu)
+        header.pack_end(menu_btn)
 
         win._toolbar_view = toolbar_view
         win.set_content(toolbar_view)
@@ -371,9 +509,18 @@ class HermitageApp(Adw.Application):
         self, win: Adw.ApplicationWindow, books: list[Book],
     ) -> Gtk.GridView:
         """Create the grid view with a filtered list model."""
+        from hermitage.config import get as cfg_get
+
+        # Build sorted list of BookObjects
+        book_objects = [BookObject(b) for b in books]
+        sort_field = cfg_get("sort_field", "title")
+        sort_asc = cfg_get("sort_ascending", True)
+        _sort_books(book_objects, sort_field, sort_asc)
+
         store = Gio.ListStore.new(BookObject)
-        for b in books:
-            store.append(BookObject(b))
+        for obj in book_objects:
+            store.append(obj)
+        win._store = store
 
         win._filter = Gtk.CustomFilter()
         win._filtered_model = Gtk.FilterListModel(model=store, filter=win._filter)
@@ -392,9 +539,28 @@ class HermitageApp(Adw.Application):
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_child(grid)
 
+        # Genre browser (stacked behind the grid)
+        win._genre_browser = GenreBrowser()
+        win._genre_browser.populate(win._books)
+
+        stack = Gtk.Stack()
+        stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        stack.set_transition_duration(200)
+        stack.add_named(scrolled, "grid")
+        stack.add_named(win._genre_browser, "genres")
+        win._view_stack = stack
+
+        def _on_genre_toggled(btn):
+            if btn.get_active():
+                stack.set_visible_child_name("genres")
+            else:
+                stack.set_visible_child_name("grid")
+
+        win._genre_btn.connect("toggled", _on_genre_toggled)
+
         # Right sidebar: codex detail view
         codex_split = Adw.OverlaySplitView()
-        codex_split.set_content(scrolled)
+        codex_split.set_content(stack)
         codex_split.set_sidebar(win._codex)
         codex_split.set_sidebar_position(Gtk.PackType.END)
         codex_split.set_min_sidebar_width(360)
@@ -402,6 +568,19 @@ class HermitageApp(Adw.Application):
         codex_split.set_show_sidebar(False)
         win._split = codex_split
         win._codex.on_dismiss = lambda: codex_split.set_show_sidebar(False)
+
+        def _codex_search(query: str):
+            win._search_entry.set_text(query)
+            win._search_btn.set_active(True)
+
+        win._codex.on_search = _codex_search
+
+        def _genre_search(query: str):
+            win._search_entry.set_text(query)
+            win._search_btn.set_active(True)
+            win._genre_btn.set_active(False)  # switch back to grid
+
+        win._genre_browser.on_search = _genre_search
 
         # Left sidebar: virtual library list
         vl_defs = load_virtual_libraries()
@@ -434,7 +613,8 @@ class HermitageApp(Adw.Application):
         win._toolbar_view.set_content(vl_split)
 
     def _wire_search(self, win: Adw.ApplicationWindow):
-        """Connect the search entry to the filter pipeline."""
+        """Connect the search entry to the filter pipeline with debounce."""
+        win._search_debounce_id = 0
         win._search_entry.connect("search-changed", self._on_search_changed, win)
 
     # -- event handlers -----------------------------------------------------
@@ -467,21 +647,68 @@ class HermitageApp(Adw.Application):
     def _on_search_changed(
         entry: Gtk.SearchEntry, win: Adw.ApplicationWindow,
     ):
-        """Re-filter the grid when the search text changes."""
+        """Debounce search — wait 400ms after last keystroke before filtering."""
+        if win._search_debounce_id:
+            GLib.source_remove(win._search_debounce_id)
+            win._search_debounce_id = 0
+
         query = entry.get_text().strip()
 
+        # Clear filter immediately when the search bar is emptied
         if not query:
             win._filter.set_filter_func(None)
             win._title_widget.set_subtitle(f"{len(win._books)} books")
             return
 
-        matching_ids = {
-            b.id for b in filter_books(query, win._books, win._vl_resolver)
-        }
-        win._filter.set_filter_func(lambda item: item.book.id in matching_ids)
+        def _apply_filter():
+            win._search_debounce_id = 0
+            text = entry.get_text().strip()
+            if not text:
+                win._filter.set_filter_func(None)
+                win._title_widget.set_subtitle(f"{len(win._books)} books")
+                # Restore default sort
+                HermitageApp._resort_grid(win)
+                return GLib.SOURCE_REMOVE
 
-        count = win._filtered_model.get_n_items()
-        win._title_widget.set_subtitle(f"{count} of {len(win._books)} books")
+            matched = filter_books(text, win._books, win._vl_resolver)
+            matching_ids = {b.id for b in matched}
+            win._filter.set_filter_func(
+                lambda item: item.book.id in matching_ids,
+            )
+
+            # Auto-sort by series_index when filtering by series
+            low = text.lower()
+            if low.startswith("series:") or low.startswith('series:"'):
+                items = [win._store.get_item(i)
+                         for i in range(win._store.get_n_items())]
+                _sort_books(items, "series", True)
+                win._store.remove_all()
+                for obj in items:
+                    win._store.append(obj)
+
+            count = win._filtered_model.get_n_items()
+            win._title_widget.set_subtitle(
+                f"{count} of {len(win._books)} books",
+            )
+            return GLib.SOURCE_REMOVE
+
+        win._search_debounce_id = GLib.timeout_add(400, _apply_filter)
+
+    @staticmethod
+    def _resort_grid(win: Adw.ApplicationWindow):
+        """Re-sort the grid store based on current config values."""
+        from hermitage.config import get as cfg_get
+
+        store = win._store
+        field = cfg_get("sort_field", "title")
+        ascending = cfg_get("sort_ascending", True)
+
+        # Extract, sort, and repopulate
+        items = [store.get_item(i) for i in range(store.get_n_items())]
+        _sort_books(items, field, ascending)
+        store.remove_all()
+        for obj in items:
+            store.append(obj)
 
     # -- builders -----------------------------------------------------------
 

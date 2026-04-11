@@ -120,3 +120,83 @@ gridview > child {
     background-color: alpha(black, 0.4);
     color: white;
 }
+
+/* Clickable text buttons in the Codex (author, series, tags) */
+
+.codex-link-btn {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    min-height: 0;
+    min-width: 0;
+}
+
+.codex-link-btn:hover {
+    opacity: 0.7;
+}
+
+.codex-tag-pill.codex-link-btn {
+    padding: 4px 14px;
+}
+
+/* ---- Genre Browser ---- */
+
+.genre-card {
+    padding: 0;
+    border-radius: 12px;
+}
+
+.genre-flow flowboxchild {
+    padding: 0;
+}
+
+.genre-pill {
+    background-color: alpha(@accent_bg_color, 0.12);
+    color: @accent_color;
+    border-radius: 99px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    box-shadow: none;
+}
+
+.genre-pill:hover {
+    background-color: alpha(@accent_bg_color, 0.25);
+}
+
+.genre-pill-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: alpha(@accent_color, 0.6);
+}
+
+.genre-count {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.genre-direct {
+    font-size: 13px;
+    color: @accent_color;
+    font-weight: 500;
+}
+
+.genre-subsection {
+    font-size: 13px;
+    font-weight: 700;
+    color: alpha(@window_fg_color, 0.7);
+}
+
+.genre-subsection-btn {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 2px 0;
+    min-height: 0;
+}
+
+.genre-subsection-btn:hover .genre-subsection {
+    color: @accent_color;
+}
