@@ -71,7 +71,6 @@
 - [ ] **Accessibility:** Ensure keyboard navigation works end-to-end (grid focus, codex navigation, search, VL sidebar). Screen reader labels on interactive elements.
 
 ## Phase 10: Packaging & 1.0 Release
-- [ ] **Stats Section:** Attractive page of "widgets" that can be added or removed of statistics about their collection. We can be creative here.
 - [ ] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme.
 - [ ] **Desktop entry:** `dev.hermitage.Hermitage.desktop` file with proper categories, icon reference, and `StartupWMClass`.
 - [ ] **AppStream metadata:** `dev.hermitage.Hermitage.metainfo.xml` with screenshots, release notes, and OARS content rating for software center listings.
