@@ -1,40 +1,47 @@
 <p align="center">
-  <b><code>Hermitage</code></b>
+  <img src="logo.svg" alt="Hermitage" width="420">
 </p>
-<p align="center">
-  A visually immersive, local-first media sanctuary for Calibre libraries.
-</p>
+
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python 3.14+"></a>
-  <a href="https://gitlab.gnome.org/GNOME/gtk/-/tags/4.22.0"><img src="https://img.shields.io/badge/GTK-4.22%2B-4a86cf" alt="GTK 4.22+"></a>
-  <a href="https://gitlab.gnome.org/GNOME/libadwaita/-/tags/1.7.0"><img src="https://img.shields.io/badge/Libadwaita-1.7%2B-57a5e5" alt="Libadwaita 1.7+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" alt="License: GPL-3.0"></a>
   <a href="https://ko-fi.com/vrnvctss"><img src="https://img.shields.io/badge/support-Ko--fi-ff5f5f?logo=kofi" alt="Ko-fi"></a>
 </p>
 
 ---
 
-Native GTK 4 / Libadwaita application built for GNOME 50+. Designed to make browsing a 4,000+ book library feel like walking through a curated gallery rather than scrolling a spreadsheet.
+# Hermitage
 
-Calibre is the gold standard for ebook management, but its UI is built for librarians, not readers. Projects like Calibre-Web and Calibre-Web-Automated add a browser-based frontend, but they're built for multi-user households and server deployments -- Docker containers, authentication layers, network overhead, and configuration complexity for what should be opening a folder on your own machine. Hermitage is built for the loner. One user, one library, one desktop. It reads your existing Calibre `metadata.db` directly (read-only, `mode=ro`) and presents it as a native application -- zero network calls, zero Docker, zero accounts, zero multi-user anything. Just your books.
+A visually immersive, local-first media sanctuary for Calibre libraries. Native GTK 4 / Libadwaita application built for GNOME 50+, designed to make browsing a 4,000+ item library feel like walking through a curated gallery.
+
+## Why this exists
+
+Calibre is the gold standard for ebook management, but its UI is built for librarians, not readers. Hermitage is built for the single user who wants a modern, native desktop experience without the overhead of Docker containers or web-based authentication layers. It reads your existing `metadata.db` directly (read-only) and presents your collection as a high-performance, cinematic gallery.
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
-| **The Sanctuary** | Edge-to-edge cover art grid with strict 2:3 aspect ratios, hover scale transforms, and fade-in titles. Covers are the only focus -- titles stay hidden until hover/focus. |
-| **The Codex** | Sliding detail sidebar with a blurred hero banner, mini cover thumbnail, clickable author/series/tag metadata, styled synopsis, star ratings, publication date, format list, and a one-click "Read" button. |
-| **Genre browser** | Full-page category view built from your Calibre tags. Renders the entire dot-separated tag hierarchy as nested cards with clickable pills and book counts. Click any genre to filter the grid. |
-| **Dynamic color tinting** | Dominant color extracted from each cover via median-cut quantization (5 colors, sorted by vibrancy). Mapped to per-cell hover glows and keyboard focus rings. |
-| **Calibre search** | Full Calibre query syntax -- field prefixes, quoted values, exact match (`=`), boolean `and`/`or`/`not`, parentheses, and `vl:` virtual library references. 400ms debounce for smooth typing. |
-| **Virtual libraries** | Left sidebar listing all Calibre virtual libraries from the `preferences` table. Click any library to filter the grid instantly. |
-| **Sort options** | Sort by title, author, date added, publication date, rating, or series. Ascending/descending toggle. Series searches auto-sort by reading order. |
-| **Responsive layout** | `Adw.Breakpoint` rules scale the grid: 2-3 columns on narrow windows, 3-5 on medium, 3-12 on wide desktop. |
-| **Thumbnail pipeline** | Pillow-based 360x540 thumbnail cache with BLAKE2b invalidation keys, 4-thread generation pool, and a 512-entry in-memory `Gdk.Texture` LRU. |
-| **Native file launch** | "Read" button opens books via `Gtk.FileLauncher` in your system's default reader (Foliate, Papers, Evince). Format priority: EPUB > PDF > MOBI > AZW3 > CBZ > CBR > DJVU > TXT. |
-| **Configuration** | YAML config at `~/.config/hermitage/config.yaml`. First-run wizard for library setup. In-app preferences page. Env var override for scripting. |
-| **Keyboard shortcuts** | Ctrl+F (search), Ctrl+L (libraries), Escape (dismiss codex / search / sidebar). |
-| **100% local** | Zero telemetry, zero network calls, zero user accounts, zero Docker. Your library stays on your disk. |
+| **The Sanctuary** | Edge-to-edge cover art grid with hover scale transforms and dynamic color tinting. |
+| **The Codex** | Sliding detail sidebar with hero banners, clickable metadata, and star ratings. |
+| **Genre Browser** | Recursive tag hierarchy rendered as nested cards and pills. |
+| **Virtual Libraries** | Native support for Calibre's **Virtual Libraries** (Wings) for instant filtering. |
+| **Local-First** | Zero telemetry, zero network calls, zero accounts. Just your books. |
+
+## Development & Setup
+
+Hermitage requires **Python 3.14+** and **GTK 4.22+**.
+
+```bash
+# Install dependencies
+pip install PyGObject Pillow PyYAML
+
+# Run first-run wizard
+python -m hermitage
+```
+
+### Library Verification
+Includes a standalone CLI tool, `hermitage-verify`, to validate library integrity, cover file presence, and format resolution.
 
 ## Tag structure
 
