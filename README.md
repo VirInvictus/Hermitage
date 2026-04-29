@@ -178,4 +178,5 @@ hermitage/
 
 ## Support
 
-If this saved you time, consider [buying me a coffee](https://ko-fi.com/vrnvctss).
+Support me by donating bitcoin (even a coffee would help):  
+bc1qkge6zr45tzqfwfmvma2ylumt6mg7wlwmhr05yv
