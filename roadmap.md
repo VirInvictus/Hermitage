@@ -54,7 +54,7 @@
 - [ ] **No-results state:** When a search returns zero matches, show an `Adw.StatusPage` with a relevant message and suggestion (e.g., "No books match — try a broader search"). Replace the empty grid, don't just leave it blank.
 - [ ] **Loading progress:** Replace the static "Loading Library..." status page with an indication of progress — book count loaded, thumbnail cache warming percentage, or at minimum a spinner with a subtitle that updates.
 - [ ] **Graceful degradation:** Handle corrupt covers (truncated JPEG, zero-byte files) without crashing the thumbnail or color pipelines. Surface warnings in the UI or console log rather than silently swallowing them.
-- [ ] **Database lock handling:** If `metadata.db` is locked by Calibre (write lock during import), show a clear error with a retry option instead of hanging or crashing.
+- [ ] **Database lock handling:** If `metadata.db` is locked by Calibre, transparently fall back to a snapshot copy instead of failing or hanging. Mirror the approach in `../CalibreQuarry/src/cquarry/db.py` (`CalibreDB._open`): try `mode=ro` first; on `OperationalError` containing "locked", `shutil.copy2` the `.db` plus its `-wal` and `-shm` siblings to a `tempfile.mkstemp` path and open the copy. Log a one-line note that we're reading from a snapshot. Clean up the temp files on shutdown.
 
 ## Phase 8: Reading History
 - [ ] **Local history database:** A small SQLite database at `~/.local/share/hermitage/history.db` tracking which books have been opened via the "Read" button, with timestamps. Hermitage never writes to Calibre's database.
@@ -77,3 +77,15 @@
 - [ ] **Flatpak manifest:** `dev.hermitage.Hermitage.yml` targeting the GNOME 50 runtime. Bundle all Python dependencies. Test on a clean system.
 - [ ] **Final testing:** Full regression pass on a 4,000+ book library. Verify every feature end-to-end: first-run wizard, search, VL sidebar, codex, read button, sort options, reading history, placeholder covers, breakpoints.
 - [ ] **Version 1.0.0:** Bump version, write release patchnotes, tag the release, publish Flatpak and PyPI package.
+
+## Phase 11: CalibreQuarry Feature Port
+
+Port as much of `../CalibreQuarry` (the `cquarry` CLI) into Hermitage as makes sense for a GUI library viewer. CalibreQuarry already has battle-tested logic for many things Hermitage will eventually want; rather than rewrite, lift the modules in `../CalibreQuarry/src/cquarry/` and adapt them to our `Book` dataclass and GTK surfaces.
+
+- [ ] **DB lock fallback** (see Phase 7 bullet) — port `CalibreDB._open` into `hermitage/database.py`. This is the highest-value port and a prerequisite for the rest, since cquarry runs against the same locked-DB conditions Hermitage will hit.
+- [ ] **Custom columns:** port `db.get_custom_columns()` and `db.load_custom_column()`. Surface user-defined Calibre custom columns in the Codex (read-only) and as searchable fields.
+- [ ] **Identifiers:** port `db.get_identifiers()` so the Codex can render ISBN / Goodreads / etc. links from the `identifiers` table.
+- [ ] **Library analytics & stats:** evaluate `cquarry/modes/{stats,analytics,audit}.py` for a "Library Insights" page (book counts by tag/author/series, missing-cover audit, format coverage).
+- [ ] **Catalog / export:** evaluate `cquarry/modes/{catalog,export}.py` for an in-app export (OPDS-style catalog, JSON/CSV dump). Hermitage stays read-only against Calibre's DB; exports go to the user's chosen path.
+- [ ] **Series view:** port `db.get_all_series()` (ordered series with index runs and titles) for a dedicated series browser sibling to the genre browser.
+- [ ] **Search-expression parity:** cross-check our `hermitage/search.py` parser against cquarry's `_parse_or` / `_match_tags` / `_match_authors` semantics (especially `tags:Foo` matching `Foo.*` as a hierarchy prefix, which Hermitage does not currently do). Align behaviour so the same query returns the same set in both tools.
