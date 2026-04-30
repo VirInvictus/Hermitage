@@ -10,6 +10,10 @@
 
 ---
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/abad1033-2ba3-4ce2-92d8-a283b8e9d5ed" alt="Hermitage Screenshot" style="max-width: 100%; border-radius: 8px;">
+</p>
+
 # Hermitage
 
 A visually immersive, local-first media sanctuary for Calibre libraries. Native GTK 4 / Libadwaita application built for GNOME 50+, designed to make browsing a 4,000+ item library feel like walking through a curated gallery.
@@ -56,12 +60,6 @@ NonFic.History.Military    -> NonFic > History > Military
 ```
 
 Top-level categories appear as cards. Mid-level branches appear as labeled subsections. Leaf genres appear as clickable accent-colored pills with book counts. Every level is clickable and filters the grid. If your Calibre tags are flat (no dots), the genre browser still works -- each tag gets its own pill under a single section.
-
-## Screenshot
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/abad1033-2ba3-4ce2-92d8-a283b8e9d5ed" alt="Hermitage Screenshot" style="max-width: 100%; border-radius: 8px;">
-</p>
 
 ## Requirements
 
