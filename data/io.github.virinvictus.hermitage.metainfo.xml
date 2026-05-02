@@ -31,6 +31,7 @@
   </description>
 
   <launchable type="desktop-id">io.github.virinvictus.hermitage.desktop</launchable>
+  <icon type="stock">io.github.virinvictus.hermitage</icon>
 
   <url type="homepage">https://github.com/VirInvictus/Hermitage</url>
   <url type="bugtracker">https://github.com/VirInvictus/Hermitage/issues</url>
@@ -72,15 +73,24 @@
 
   <content_rating type="oars-1.1"/>
 
+  <!-- Branding colours sampled from the icon: warm cream that pairs with
+       the H ink for light backgrounds, mid-aubergine that pairs with the
+       card body for dark backgrounds. -->
   <branding>
-    <color type="primary" scheme_preference="light">#fbf3e6</color>
-    <color type="primary" scheme_preference="dark">#241c14</color>
+    <color type="primary" scheme_preference="light">#f7e7d3</color>
+    <color type="primary" scheme_preference="dark">#2c1424</color>
   </branding>
 
   <!-- TODO: add <screenshots> section once the icon and a release build
        are ready to capture against. -->
 
   <releases>
+    <release version="0.14.0" date="2026-05-01">
+      <description>
+        <p>Application icon — Fraunces-inspired serif H monogram on a deep
+           aubergine card with warm candlelight glow.</p>
+      </description>
+    </release>
     <release version="0.13.1" date="2026-05-01">
       <description>
         <p>Library export to JSON or CSV; toast notification system.</p>

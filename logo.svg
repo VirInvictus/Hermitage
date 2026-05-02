@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hermitage app icon — a high-contrast Fraunces-inspired serif H
+  monogram set on a deep aubergine rounded card with a warm
+  candlelight glow from above and a thin gilt shelf line below.
+
+  Designed at 128×128. Stem-to-crossbar contrast and bracket-style
+  serif extensions echo the Fraunces display face used throughout
+  the UI; the warm cream→amber ink gradient ties to the codex hero.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#4c2438"/>
+      <stop offset="0.55" stop-color="#2c1424"/>
+      <stop offset="1"    stop-color="#150810"/>
+    </linearGradient>
+
+    <radialGradient id="glow" cx="0.5" cy="0.28" r="0.55">
+      <stop offset="0" stop-color="#f0cf85" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#f0cf85" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf3d4"/>
+      <stop offset="1" stop-color="#e8c182"/>
+    </linearGradient>
+
+    <linearGradient id="shelf" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#e8c182" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#e8c182" stop-opacity="0.7"/>
+      <stop offset="1"   stop-color="#e8c182" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded card base (~22% corner radius — matches Adwaita app icons) -->
+  <rect x="4" y="4" width="120" height="120" rx="26" ry="26" fill="url(#card)"/>
+
+  <!-- Warm candlelight wash from upper-centre -->
+  <rect x="4" y="4" width="120" height="120" rx="26" ry="26" fill="url(#glow)"/>
+
+  <!-- Hairline inner outline for definition on light backgrounds -->
+  <rect x="4.5" y="4.5" width="119" height="119" rx="25.5" ry="25.5"
+        fill="none" stroke="#000" stroke-opacity="0.30" stroke-width="1"/>
+
+  <!--
+    Serif H — composed of overlapping rectangles painted as one shape:
+      stem 16w  ·  serif 28w · 6h  ·  crossbar 6h × 42w
+      cap height 82  (y 22 → y 104)
+    The crossbar sits at y=60→66, slightly above geometric centre for
+    optical balance. Painted with a cream→amber vertical gradient so
+    the lower half catches the shelf accent below.
+  -->
+  <g fill="url(#ink)">
+    <!-- Left stem -->
+    <rect x="27" y="22" width="16" height="82"/>
+    <rect x="21" y="22" width="28" height="6"/>
+    <rect x="21" y="98" width="28" height="6"/>
+
+    <!-- Right stem (mirror around x=64) -->
+    <rect x="85" y="22" width="16" height="82"/>
+    <rect x="79" y="22" width="28" height="6"/>
+    <rect x="79" y="98" width="28" height="6"/>
+
+    <!-- Crossbar (thinner than stems for high-contrast Fraunces feel) -->
+    <rect x="43" y="60" width="42" height="6"/>
+  </g>
+
+  <!-- Thin gilt shelf line — suggests the page edge of a closed book -->
+  <rect x="22" y="113" width="84" height="2" rx="1" fill="url(#shelf)"/>
+</svg>

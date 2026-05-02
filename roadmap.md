@@ -72,7 +72,7 @@
 - [x] **Accessibility:** Ensure keyboard navigation works end-to-end (grid focus, codex navigation, search, VL sidebar). Screen reader labels on interactive elements.
 
 ## Phase 10: Packaging & 1.0 Release
-- [ ] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme.
+- [x] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme. (`data/icons/hicolor/scalable/apps/io.github.virinvictus.hermitage.svg`, mirrored at project root as `logo.svg`.)
 - [x] **Desktop entry:** `io.github.virinvictus.hermitage.desktop` file with proper categories, icon reference, and `StartupWMClass`. (Validated by `desktop-file-validate`.)
 - [x] **AppStream metadata:** `io.github.virinvictus.hermitage.metainfo.xml` with release notes and OARS content rating for software center listings. Screenshots TODO once the icon and a release build are ready. (Validated by `appstreamcli`.)
 - [ ] **Flatpak manifest:** `io.github.virinvictus.hermitage.yml` targeting the GNOME 50 runtime. Bundle all Python dependencies. Test on a clean system.

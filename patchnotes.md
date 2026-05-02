@@ -1,5 +1,46 @@
 # Hermitage — Patch Notes
 
+## v0.14.0 (2026-05-01) — Application Icon
+
+---
+
+### New Features
+
+**App icon.** A high-contrast Fraunces-inspired serif H monogram on a
+deep aubergine rounded card with a warm candlelight glow from above
+and a thin gilt shelf line below. Hand-traced as a small set of
+overlapping rectangles painted with a cream → amber vertical gradient
+so the lower half catches the shelf accent — same warm/dark palette
+the codex hero uses.
+
+Designed at 128×128. Stem-to-crossbar contrast (16 px stem vs 6 px
+crossbar) and bracket-style serif extensions echo the Fraunces
+display face; the rounded-card corner radius (~22 %) matches Adwaita
+app icon convention. Renders cleanly from 24 px (the H reads as a
+warm-toned monogram silhouette) up through 256 px (full ink gradient,
+glow, and shelf detail visible).
+
+Shipped at `data/icons/hicolor/scalable/apps/io.github.virinvictus.hermitage.svg`
+for system-wide hicolor installation, plus mirrored at `logo.svg` in
+the project root per the standard repo layout.
+
+### Enhancements
+
+**AppStream `<icon type="stock">` hint.** Explicit
+`<icon type="stock">io.github.virinvictus.hermitage</icon>` in
+`metainfo.xml` so software centers (GNOME Software, Flathub, etc.)
+have a direct lookup for the icon name in addition to the desktop-id
+launchable.
+
+**AppStream branding colours updated to match the icon palette.** The
+prior placeholder colours (`#fbf3e6` / `#241c14`) were a brown-toned
+guess; replaced with `#f7e7d3` (warm cream sampled from the H ink) for
+the light scheme and `#2c1424` (mid-aubergine sampled from the card
+mid-tone) for the dark scheme, so the icon sits flush against software-
+center backgrounds.
+
+---
+
 ## v0.13.3 (2026-05-01) — App ID Rename
 
 ---
