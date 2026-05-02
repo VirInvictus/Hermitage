@@ -21,7 +21,7 @@ from hermitage.search import filter_books, parse_query
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
 
-APP_ID = "dev.hermitage.Hermitage"
+APP_ID = "io.github.virinvictus.hermitage"
 
 # ---------------------------------------------------------------------------
 # GObject wrapper — lets Book live inside Gio.ListStore

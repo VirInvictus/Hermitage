@@ -1,5 +1,33 @@
 # Hermitage — Patch Notes
 
+## v0.13.3 (2026-05-01) — App ID Rename
+
+---
+
+### Structural Improvements
+
+**App ID renamed to `io.github.virinvictus.hermitage`.** The original
+`dev.hermitage.Hermitage` ID assumed ownership of the `hermitage.dev`
+domain, which would have blocked Flathub submission. The new ID follows
+Flathub's canonical fallback convention for GitHub-hosted projects:
+`io.github.<lowercased-username>.<lowercased-project>`.
+
+Touched:
+
+- `hermitage/app.py` — `APP_ID` constant. Also fixes the about-dialog
+  `application_icon` reference.
+- `data/dev.hermitage.Hermitage.desktop` → renamed via `git mv` to
+  `data/io.github.virinvictus.hermitage.desktop`. Internal `Icon=` and
+  `StartupWMClass=` updated.
+- `data/dev.hermitage.Hermitage.metainfo.xml` → renamed similarly.
+  `<id>`, `<launchable>`, and `<developer id>` updated.
+- `roadmap.md` — Flatpak manifest entry updated to the new filename.
+
+Both packaging files re-validate clean under `desktop-file-validate`
+and `appstreamcli validate`.
+
+---
+
 ## v0.13.2 (2026-05-01) — Packaging Metadata Scaffold
 
 ---
