@@ -87,6 +87,6 @@ Port as much of `../CalibreQuarry` (the `cquarry` CLI) into Hermitage as makes s
 - [ ] **Custom columns:** port `db.get_custom_columns()` and `db.load_custom_column()`. Surface user-defined Calibre custom columns in the Codex (read-only) and as searchable fields.
 - [x] **Identifiers:** port `db.get_identifiers()` so the Codex can render ISBN / Goodreads / etc. links from the `identifiers` table.
 - [x] **Library analytics & stats:** evaluate `cquarry/modes/{stats,analytics,audit}.py` for a "Library Insights" page (book counts by tag/author/series, missing-cover audit, format coverage).
-- [ ] **Catalog / export:** evaluate `cquarry/modes/{catalog,export}.py` for an in-app export (OPDS-style catalog, JSON/CSV dump). Hermitage stays read-only against Calibre's DB; exports go to the user's chosen path.
+- [x] **Catalog / export:** evaluate `cquarry/modes/{catalog,export}.py` for an in-app export (OPDS-style catalog, JSON/CSV dump). Hermitage stays read-only against Calibre's DB; exports go to the user's chosen path.
 - [x] **Series view:** port `db.get_all_series()` (ordered series with index runs and titles) for a dedicated series browser sibling to the genre browser.
 - [x] **Search-expression parity:** cross-check our `hermitage/search.py` parser against cquarry's `_parse_or` / `_match_tags` / `_match_authors` semantics (especially `tags:Foo` matching `Foo.*` as a hierarchy prefix, which Hermitage does not currently do). Align behaviour so the same query returns the same set in both tools.

@@ -1,5 +1,42 @@
 # Hermitage — Patch Notes
 
+## v0.13.1 (2026-05-01) — Library Export
+
+---
+
+### New Features
+
+**Export Library…** New menu item between Insights and Preferences.
+Opens a `Gtk.FileDialog` save dialog with JSON and CSV filters; format
+is inferred from the chosen extension (`.csv` → CSV, anything else →
+JSON). Default name `hermitage-library.json`. On 4,272 books a JSON
+export weighs ~8.5 MB and a CSV ~1.5 MB, written in well under a
+second.
+
+**Toast notifications.** New `Adw.ToastOverlay` wraps the main window
+content. Export success/failure surfaces as a transient toast
+("Exported 4,272 books → hermitage-library.json (JSON)") instead of a
+modal dialog. Future async work (warming progress, history actions,
+etc.) can hang notifications off `win._toast_overlay.add_toast()` with
+no further plumbing.
+
+### Structural Improvements
+
+**`hermitage/export.py` (new module).** Two public functions —
+`detect_format(path)` and `export_books(books, path, fmt=None)`. Pure
+read-only reformatting of the in-memory `list[Book]`. CSV flattens
+list-typed fields with `; ` and JSON-encodes the `identifiers` dict so
+each row stays single-line. JSON keeps lists/dicts as native structure
+for downstream tooling.
+
+**Loading + error pages now go through the toast overlay.** The
+loading StatusPage and the "Library Not Found" fallback both set the
+overlay's child instead of replacing the toolbar's content directly,
+so the overlay's toast capability is available the moment the window
+appears.
+
+---
+
 ## v0.13.0 (2026-05-01) — Library Insights
 
 ---

@@ -382,6 +382,10 @@ class HermitageApp(Adw.Application):
         insights_action.connect("activate", self._on_insights)
         self.add_action(insights_action)
 
+        export_action = Gio.SimpleAction(name="export-library")
+        export_action.connect("activate", self._on_export)
+        self.add_action(export_action)
+
         # Sort field action (stateful string)
         from hermitage.config import get as cfg_get
         sort_field_action = Gio.SimpleAction.new_stateful(
@@ -444,6 +448,53 @@ class HermitageApp(Adw.Application):
         from hermitage.insights import InsightsWindow
         InsightsWindow(win, win._books).present()
 
+    def _on_export(self, action, param):
+        win = self.props.active_window
+        if not win or not hasattr(win, "_books"):
+            return
+
+        # Default name + filter set
+        json_filter = Gtk.FileFilter()
+        json_filter.set_name("JSON (*.json)")
+        json_filter.add_pattern("*.json")
+
+        csv_filter = Gtk.FileFilter()
+        csv_filter.set_name("CSV (*.csv)")
+        csv_filter.add_pattern("*.csv")
+
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(json_filter)
+        filters.append(csv_filter)
+
+        dialog = Gtk.FileDialog(
+            title="Export Library",
+            initial_name="hermitage-library.json",
+        )
+        dialog.set_filters(filters)
+        dialog.set_default_filter(json_filter)
+
+        def _on_save_done(dlg, result):
+            try:
+                f = dlg.save_finish(result)
+            except GLib.Error:
+                return  # user cancelled or io error
+            from pathlib import Path
+            from hermitage.export import export_books, detect_format
+
+            path = Path(f.get_path())
+            try:
+                count = export_books(win._books, path)
+            except Exception as exc:
+                win._toast_overlay.add_toast(Adw.Toast.new(
+                    f"Export failed: {type(exc).__name__}: {exc}",
+                ))
+                return
+            win._toast_overlay.add_toast(Adw.Toast.new(
+                f"Exported {count:,} books → {path.name} ({detect_format(path).upper()})",
+            ))
+
+        dialog.save(win, None, _on_save_done)
+
     def _on_about(self, action, param):
         win = self.props.active_window
         if not win:
@@ -502,6 +553,11 @@ class HermitageApp(Adw.Application):
         # Codex detail view (created before library loads)
         win._codex = CodexView()
 
+        # Toast overlay wraps the main content so any module can pop a
+        # transient notification without plumbing it through every widget.
+        win._toast_overlay = Adw.ToastOverlay()
+        win._toolbar_view.set_content(win._toast_overlay)
+
         # Loading state — spinner inside the StatusPage so users see motion
         # while the SQL query runs and the first chrome paints.
         status = Adw.StatusPage(
@@ -513,7 +569,7 @@ class HermitageApp(Adw.Application):
         spinner.set_size_request(36, 36)
         spinner.set_halign(Gtk.Align.CENTER)
         status.set_child(spinner)
-        win._toolbar_view.set_content(status)
+        win._toast_overlay.set_child(status)
 
         GLib.idle_add(self._load_library, win)
         return win
@@ -608,6 +664,7 @@ class HermitageApp(Adw.Application):
         menu_btn.set_tooltip_text("Main menu")
         menu = Gio.Menu()
         menu.append("Library Insights", "app.insights")
+        menu.append("Export Library…", "app.export-library")
         menu.append("Preferences", "app.preferences")
         menu.append("About Hermitage", "app.about")
         menu_btn.set_menu_model(menu)
@@ -668,7 +725,7 @@ class HermitageApp(Adw.Application):
         try:
             books = load_library()
         except FileNotFoundError as exc:
-            win._toolbar_view.set_content(Adw.StatusPage(
+            win._toast_overlay.set_child(Adw.StatusPage(
                 title="Library Not Found",
                 description=str(exc),
                 icon_name="dialog-error-symbolic",
@@ -861,7 +918,7 @@ class HermitageApp(Adw.Application):
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
 
-        win._toolbar_view.set_content(vl_split)
+        win._toast_overlay.set_child(vl_split)
 
     def _wire_search(self, win: Adw.ApplicationWindow):
         """Connect the search entry to the filter pipeline with debounce."""
