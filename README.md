@@ -5,7 +5,6 @@
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python 3.14+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" alt="License: GPL-3.0"></a>
-  <a href="https://ko-fi.com/vrnvctss"><img src="https://img.shields.io/badge/support-Ko--fi-ff5f5f?logo=kofi" alt="Ko-fi"></a>
 </p>
 
 ---
@@ -176,5 +175,8 @@ hermitage/
 
 ## Support
 
-Support me by donating bitcoin (even a coffee would help):  
+If Hermitage's useful to you and you'd like to chip in:
+
+```
 bc1qkge6zr45tzqfwfmvma2ylumt6mg7wlwmhr05yv
+```
