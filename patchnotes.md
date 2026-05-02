@@ -1,5 +1,55 @@
 # Hermitage — Patch Notes
 
+## v0.12.0 (2026-05-01) — Series Browser
+
+---
+
+### New Features
+
+**Series browser.** Sibling page to the existing GenreBrowser, accessible
+from a new `view-paged-symbolic` toggle in the header bar (next to the
+genre toggle). The two are mutually exclusive — flipping one untoggles the
+other so the view stack only ever shows one browse page at a time. Closing
+either drops back to the grid (or the no-results page if a search is
+active).
+
+The page lists every series in the library as a clickable card. Each card
+shows:
+
+- **Name** (Fraunces 17px, weight 700, slight negative tracking) —
+  the editorial focal point.
+- **Index range** (Plex Condensed, accent color, uppercase tracking) —
+  `#1 → #7` for contiguous runs, `#1 → #20 (incomplete)` when there are
+  gaps in `series_index`.
+- **Title hint** — `First Title  →  Last Title  (N books)` for series of
+  3+, simpler renderings for 1- and 2-book series. Ellipsises tightly so
+  long titles don't blow out the row.
+
+Whole card is the click target; clicking sets the search to
+`series:"<name>"` which the existing search pipeline already auto-sorts by
+`series_index` (Phase 6 behaviour). Hover lifts the card with an accent
+tint via `cubic-bezier(0.32, 0.72, 0, 1)` matching the cover-cell easing.
+
+If the library has no series at all, the page renders an `Adw.StatusPage`
+explaining how to set series in Calibre rather than an empty list.
+
+### Structural Improvements
+
+**`hermitage/series.py` (new module).** Single dataclass
+`SeriesEntry(name, books)` plus a `_build_series_index()` aggregator that
+groups the loaded library in pure Python — no extra DB query needed since
+`Book.series` and `Book.series_index` already come down with the main
+load. The aggregator computes `count` and a smart `index_range` property
+(detects contiguous integer runs vs. gaps).
+
+**Shared "default view" predicate.** `_show_default_view()` inside
+`_build_layout` collapses the grid-vs-no-results decision into one place,
+called from both browser-toggle handlers. Search-clear paths and the
+no-results swap now check `not (genre or series)` so clearing a search
+while on a browser page leaves you on that browser page.
+
+---
+
 ## v0.11.0 (2026-05-01) — Identifiers & Tag Hierarchy Parity
 
 ---

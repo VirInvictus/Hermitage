@@ -18,6 +18,7 @@ from hermitage.database import Book, load_library, load_virtual_libraries
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
 from hermitage.search import filter_books, parse_query
+from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
 
 APP_ID = "dev.hermitage.Hermitage"
@@ -539,6 +540,10 @@ class HermitageApp(Adw.Application):
         win._genre_btn.set_tooltip_text("Browse genres")
         header.pack_start(win._genre_btn)
 
+        win._series_btn = Gtk.ToggleButton(icon_name="view-paged-symbolic")
+        win._series_btn.set_tooltip_text("Browse series")
+        header.pack_start(win._series_btn)
+
         toolbar_view.add_top_bar(header)
 
         # Search bar (slides below header)
@@ -723,9 +728,12 @@ class HermitageApp(Adw.Application):
         win._scrolled = scrolled
         win._saved_scroll = None  # vadjustment value to restore on filter clear
 
-        # Genre browser (stacked behind the grid)
+        # Genre + Series browsers (stacked behind the grid)
         win._genre_browser = GenreBrowser()
         win._genre_browser.populate(win._books)
+
+        win._series_browser = SeriesBrowser()
+        win._series_browser.populate(win._books)
 
         # Empty-search-result state
         win._no_results = Adw.StatusPage(
@@ -739,20 +747,41 @@ class HermitageApp(Adw.Application):
         stack.set_transition_duration(240)
         stack.add_named(scrolled, "grid")
         stack.add_named(win._genre_browser, "genres")
+        stack.add_named(win._series_browser, "series")
         stack.add_named(win._no_results, "no-results")
         win._view_stack = stack
 
+        def _show_default_view():
+            """Pick grid vs no-results based on current filter state."""
+            if (
+                win._filtered_model.get_n_items() == 0
+                and win._search_entry.get_text().strip()
+            ):
+                stack.set_visible_child_name("no-results")
+            else:
+                stack.set_visible_child_name("grid")
+
+        # Genre / Series toggles are mutually exclusive — only one browser
+        # page is visible at a time. Re-entering either sets the stack;
+        # untoggling drops back to grid (or no-results).
         def _on_genre_toggled(btn):
             if btn.get_active():
+                if win._series_btn.get_active():
+                    win._series_btn.set_active(False)
                 stack.set_visible_child_name("genres")
             else:
-                # Honour the current filter — show "no results" if zero matches.
-                if win._filtered_model.get_n_items() == 0 and win._search_entry.get_text().strip():
-                    stack.set_visible_child_name("no-results")
-                else:
-                    stack.set_visible_child_name("grid")
+                _show_default_view()
+
+        def _on_series_toggled(btn):
+            if btn.get_active():
+                if win._genre_btn.get_active():
+                    win._genre_btn.set_active(False)
+                stack.set_visible_child_name("series")
+            else:
+                _show_default_view()
 
         win._genre_btn.connect("toggled", _on_genre_toggled)
+        win._series_btn.connect("toggled", _on_series_toggled)
 
         # Right sidebar: codex detail view
         codex_split = Adw.OverlaySplitView()
@@ -784,6 +813,13 @@ class HermitageApp(Adw.Application):
             win._genre_btn.set_active(False)  # switch back to grid
 
         win._genre_browser.on_search = _genre_search
+
+        def _series_search(query: str):
+            win._search_entry.set_text(query)
+            win._search_btn.set_active(True)
+            win._series_btn.set_active(False)  # switch back to grid
+
+        win._series_browser.on_search = _series_search
 
         # Left sidebar: virtual library list
         vl_defs = load_virtual_libraries()
@@ -906,7 +942,7 @@ class HermitageApp(Adw.Application):
             # Restore configured sort — Recently Read or series: filters can
             # have rewritten the store order.
             HermitageApp._resort_grid(win)
-            if not win._genre_btn.get_active():
+            if not (win._genre_btn.get_active() or win._series_btn.get_active()):
                 win._view_stack.set_visible_child_name("grid")
             HermitageApp._restore_scroll(win)
             return
@@ -946,8 +982,8 @@ class HermitageApp(Adw.Application):
                 f"{count} of {len(win._books)} books",
             )
 
-            # Empty-result state — only swap when the genre browser isn't active.
-            if not win._genre_btn.get_active():
+            # Empty-result state — only swap when no browser page is active.
+            if not (win._genre_btn.get_active() or win._series_btn.get_active()):
                 if count == 0:
                     win._no_results.set_description(
                         f'No books match “{text}”. '

@@ -224,6 +224,45 @@ gridview > child {
     padding: 4px 14px;
 }
 
+/* ---- Series Browser ---- */
+
+.series-card {
+    padding: 0;
+    border-radius: 12px;
+    background: alpha(@card_bg_color, 0.95);
+    /* Override Gtk.Button defaults so the card reads as a card */
+    box-shadow: none;
+    border: 1px solid alpha(@borders, 0.4);
+    transition: background 180ms cubic-bezier(0.32, 0.72, 0, 1),
+                border-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.series-card:hover {
+    background: alpha(@accent_bg_color, 0.10);
+    border-color: alpha(@accent_color, 0.45);
+}
+
+.series-name {
+    font-family: "Fraunces", "Source Serif 4", "Charter", serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.series-range {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: alpha(@accent_color, 0.85);
+}
+
+.series-titles {
+    font-family: "Inter Variable", "Inter", sans-serif;
+    font-size: 12.5px;
+    color: alpha(@window_fg_color, 0.65);
+}
+
 /* ---- Genre Browser ---- */
 
 .genre-card {
