@@ -64,6 +64,17 @@ gridview > child {
     padding: 2px;
 }
 
+/* ---- Read indicator badge (shown on cells whose book has history) ---- */
+
+.cover-read-badge {
+    -gtk-icon-size: 14px;
+    color: white;
+    background-color: alpha(@success_color, 0.92);
+    border-radius: 99px;
+    padding: 4px;
+    box-shadow: 0 1px 4px alpha(black, 0.45);
+}
+
 /* ---- Placeholder cover (no cover.jpg or generation failed) ---- */
 
 .cover-placeholder {

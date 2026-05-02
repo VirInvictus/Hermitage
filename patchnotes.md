@@ -1,5 +1,67 @@
 # Hermitage — Patch Notes
 
+## v0.10.0 (2026-05-01) — Phase 8: Reading History
+
+---
+
+### New Features
+
+**Local reading-history database.** New `hermitage/history.py` module backed
+by SQLite at `~/.local/share/hermitage/history.db`. The schema is
+intentionally minimal — a single `opens(book_id, opened_at)` event-log table
+with indexes on both columns — so future stats (books-this-week, streaks,
+etc.) can be derived without a migration. Critically, Hermitage **never**
+writes to Calibre's `metadata.db`; this file lives in the user's data dir
+and is independent of any Calibre library you point at. Public API:
+`record_open(book_id)`, `is_opened(book_id)` (O(1) via in-memory cache),
+`opened_book_ids()`, `last_opened_for(book_id)`, `recently_read(limit=50)`,
+and `humanize(ts)` for "3 days ago"-style strings.
+
+**Read button now writes history.** `CodexView._on_read_clicked` records the
+open event the moment the launcher fires (don't wait for the launcher to
+race a window-close — the click itself is the user signal we care about).
+A new `CodexView.on_book_opened` callback is wired by `app.py` to
+`Gtk.FilterListModel`'s filter so the grid rebinds visible cells and the
+read indicator appears immediately.
+
+**Read indicator on the grid.** Each cover cell now overlays a small green
+`emblem-ok-symbolic` badge in the top-right when the book has at least one
+open event. Sized 14px with a 4px pad and a soft drop shadow so it reads
+against any cover artwork without dominating it. Badge visibility is
+recomputed on every bind (cells recycle), gated on `history.is_opened()`.
+
+**"Last read" line in the Codex.** A new label in the meta block surfaces
+`Last read:  3 days ago` (or "just now", "15 minutes ago", "1 month ago",
+etc.) for any book with open history. Refreshes immediately after a Read
+click so the user sees their action confirmed without leaving the Codex.
+
+**"Recently Read" virtual library.** Synthetic VL row inserted into the
+sidebar between "All Books" and the Calibre-defined VLs. Bypasses the
+Calibre search expression mechanism — it's handled directly by the new
+`HermitageApp._apply_recently_read()` which reorders the store by recency
+and applies a set-membership filter. With zero history, the no-results page
+shows tailored copy ("Open a book and it'll appear in Recently Read.").
+Title subtitle reads `Recently Read · N of M books` while the VL is active.
+Switching back to All Books restores the configured sort.
+
+### Enhancements
+
+**Search-clear path now restores configured sort.** `_on_search_changed`'s
+immediate clear branch previously left whatever ordering the prior filter
+had imposed (Recently Read or `series:` queries mutate the store). It now
+calls `_resort_grid(win)` so emptying the search bar always returns the
+grid to the user's preferred sort.
+
+### Structural Improvements
+
+**Module-level opened-id cache in `history.py`.** `_opened_cache`
+populated lazily by the first `opened_book_ids()` or `is_opened()` call,
+updated synchronously by `record_open()`. Keeps the grid's bind hot path
+out of SQLite — 4,272 cells × `is_opened()` per scroll would otherwise hit
+the DB on every keystroke that re-filters the model.
+
+---
+
 ## v0.9.1 (2026-05-01) — Bundled Typography
 
 ---

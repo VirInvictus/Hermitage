@@ -178,6 +178,16 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     label.set_halign(Gtk.Align.FILL)
     overlay.add_overlay(label)
 
+    # "Read" indicator badge — top-right corner, shown only for opened books.
+    read_badge = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+    read_badge.add_css_class("cover-read-badge")
+    read_badge.set_valign(Gtk.Align.START)
+    read_badge.set_halign(Gtk.Align.END)
+    read_badge.set_margin_top(6)
+    read_badge.set_margin_end(6)
+    read_badge.set_visible(False)
+    overlay.add_overlay(read_badge)
+
     frame.set_child(overlay)
 
     # Store refs so bind doesn't depend on child ordering
@@ -188,6 +198,7 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     frame._ph_title = ph_title
     frame._ph_author = ph_author
     frame._label = label
+    frame._read_badge = read_badge
 
     list_item.set_child(frame)
 
@@ -203,6 +214,10 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     label = frame._label
 
     label.set_text(book.title)
+
+    # Read indicator — set per-bind (cells are recycled)
+    from hermitage.history import is_opened
+    frame._read_badge.set_visible(is_opened(book.id))
 
     def _show_placeholder():
         frame._ph_title.set_text(book.title)
@@ -708,6 +723,13 @@ class HermitageApp(Adw.Application):
 
         win._codex.on_search = _codex_search
 
+        def _on_book_opened(book_id: int):
+            # Cheapest way to force the GridView to rebind visible cells so the
+            # newly-set read badge appears without waiting for a scroll.
+            win._filter.changed(Gtk.FilterChange.DIFFERENT)
+
+        win._codex.on_book_opened = _on_book_opened
+
         def _genre_search(query: str):
             win._search_entry.set_text(query)
             win._search_btn.set_active(True)
@@ -770,11 +792,52 @@ class HermitageApp(Adw.Application):
     ):
         """Apply a virtual library filter when a sidebar row is clicked."""
         vl_name = row._vl_name
+        if vl_name == "__recent__":
+            HermitageApp._apply_recently_read(win)
+            return
         if vl_name is None:
             win._search_entry.set_text("")
         else:
             win._search_entry.set_text(f'vl:"{vl_name}"')
             win._search_btn.set_active(True)
+
+    @staticmethod
+    def _apply_recently_read(win: Adw.ApplicationWindow):
+        """Filter the grid to opened books, ordered by most recent open."""
+        from hermitage import history
+
+        win._search_entry.set_text("")
+        win._search_btn.set_active(False)
+
+        recent_ids = history.recently_read(50)
+        if not recent_ids:
+            win._filter.set_filter_func(lambda item: False)
+            win._title_widget.set_subtitle("Recently Read · 0 books")
+            win._no_results.set_title("Nothing here yet")
+            win._no_results.set_description(
+                "Open a book and it'll appear in Recently Read.",
+            )
+            win._view_stack.set_visible_child_name("no-results")
+            return
+
+        # Reset the no-results page to its default copy in case it was tweaked.
+        win._no_results.set_title("No matches")
+
+        # Re-order the store so the grid renders in recency order.
+        order_index = {bid: i for i, bid in enumerate(recent_ids)}
+        items = [win._store.get_item(i)
+                 for i in range(win._store.get_n_items())]
+        items.sort(key=lambda obj: order_index.get(obj.book.id, 1 << 30))
+        win._store.remove_all()
+        for obj in items:
+            win._store.append(obj)
+
+        recent_set = set(recent_ids)
+        win._filter.set_filter_func(lambda item: item.book.id in recent_set)
+        win._title_widget.set_subtitle(
+            f"Recently Read · {len(recent_ids)} of {len(win._books)} books",
+        )
+        win._view_stack.set_visible_child_name("grid")
 
     @staticmethod
     def _on_search_changed(
@@ -791,6 +854,9 @@ class HermitageApp(Adw.Application):
         if not query:
             win._filter.set_filter_func(None)
             win._title_widget.set_subtitle(f"{len(win._books)} books")
+            # Restore configured sort — Recently Read or series: filters can
+            # have rewritten the store order.
+            HermitageApp._resort_grid(win)
             if not win._genre_btn.get_active():
                 win._view_stack.set_visible_child_name("grid")
             return
@@ -878,6 +944,9 @@ class HermitageApp(Adw.Application):
         # "All Books" row
         all_row = self._make_vl_row("All Books", None)
         listbox.append(all_row)
+
+        # Synthetic "Recently Read" row — sentinel handled in _on_vl_activated
+        listbox.append(self._make_vl_row("Recently Read", "__recent__"))
 
         for name in sorted(win._vl_defs.keys()):
             listbox.append(self._make_vl_row(name, name))

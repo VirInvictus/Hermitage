@@ -57,10 +57,10 @@
 - [x] **Database lock handling:** If `metadata.db` is locked by Calibre, transparently fall back to a snapshot copy instead of failing or hanging. Mirror the approach in `../CalibreQuarry/src/cquarry/db.py` (`CalibreDB._open`): try `mode=ro` first; on `OperationalError` containing "locked", `shutil.copy2` the `.db` plus its `-wal` and `-shm` siblings to a `tempfile.mkstemp` path and open the copy. Log a one-line note that we're reading from a snapshot. Clean up the temp files on shutdown.
 
 ## Phase 8: Reading History
-- [ ] **Local history database:** A small SQLite database at `~/.local/share/hermitage/history.db` tracking which books have been opened via the "Read" button, with timestamps. Hermitage never writes to Calibre's database.
-- [ ] **Recently read shelf:** A "Recently Read" row or section at the top of the grid (or a virtual library entry) showing the last N books opened, sorted by last-opened time.
-- [ ] **Read indicator:** Subtle visual badge on cover cells for books that have been opened at least once — small dot, checkmark, or opacity shift. Unobtrusive but visible.
-- [ ] **Codex integration:** Show "Last read: 3 days ago" or similar in the Codex metadata section when a book has history.
+- [x] **Local history database:** A small SQLite database at `~/.local/share/hermitage/history.db` tracking which books have been opened via the "Read" button, with timestamps. Hermitage never writes to Calibre's database.
+- [x] **Recently read shelf:** A "Recently Read" row or section at the top of the grid (or a virtual library entry) showing the last N books opened, sorted by last-opened time.
+- [x] **Read indicator:** Subtle visual badge on cover cells for books that have been opened at least once — small dot, checkmark, or opacity shift. Unobtrusive but visible.
+- [x] **Codex integration:** Show "Last read: 3 days ago" or similar in the Codex metadata section when a book has history.
 
 ## Phase 9: Polish & Visual Refinement
 - [x] **Typography pass:** Bundled type system — Fraunces (display), Inter Variable (body), IBM Plex Sans Condensed (labels/pills). Fonts ship in `hermitage/fonts/` and register at startup via `Pango.FontMap.add_font_file()`; size, weight, tracking, and feature-settings tuned across every styled class. See v0.9.1 patchnotes.

@@ -120,7 +120,8 @@ class CodexView(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._current_book: Book | None = None
         self.on_dismiss = None
-        self.on_search = None  # callback(query_str) — populate search bar
+        self.on_search = None       # callback(query_str) — populate search bar
+        self.on_book_opened = None  # callback(book_id) — fired after Read launch
         self._build_ui()
 
     def _build_ui(self):
@@ -276,6 +277,11 @@ class CodexView(Gtk.Box):
         self._pubdate_label.add_css_class("codex-meta")
         body_inner.append(self._pubdate_label)
 
+        # Last read (populated from hermitage.history)
+        self._last_read_label = Gtk.Label(xalign=0)
+        self._last_read_label.add_css_class("codex-meta")
+        body_inner.append(self._last_read_label)
+
         content.append(body)
 
     # ------------------------------------------------------------------
@@ -365,6 +371,9 @@ class CodexView(Gtk.Box):
         # Read button
         self._read_btn.set_visible(bool(book.formats))
 
+        # Last-read line — populated from local history database
+        self._refresh_last_read()
+
         # ---- Hero visuals ----
         cover = book.cover_path
         if cover and cover.is_file():
@@ -425,6 +434,20 @@ class CodexView(Gtk.Box):
 
         _executor.submit(_work)
 
+    def _refresh_last_read(self):
+        """Populate the 'Last read' meta line from history.db, if any."""
+        book = self._current_book
+        if not book:
+            self._last_read_label.set_visible(False)
+            return
+        from hermitage import history
+        ts = history.last_opened_for(book.id)
+        if ts is None:
+            self._last_read_label.set_visible(False)
+        else:
+            self._last_read_label.set_text(f"Last read:  {history.humanize(ts)}")
+            self._last_read_label.set_visible(True)
+
     def _on_dismiss_clicked(self, btn):
         """Close the Codex sidebar."""
         if self.on_dismiss:
@@ -460,3 +483,12 @@ class CodexView(Gtk.Box):
 
         launcher = Gtk.FileLauncher(file=Gio.File.new_for_path(str(chosen)))
         launcher.launch(self.get_root(), None, None)
+
+        # Record the open immediately — even if the launcher races we want the
+        # event in history.db so the indicator and "Last read" line update.
+        from hermitage import history
+        history.record_open(book.id)
+        if self.on_book_opened:
+            self.on_book_opened(book.id)
+        # Refresh the meta line so the user sees "Last read: just now"
+        self._refresh_last_read()
