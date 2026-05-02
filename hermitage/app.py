@@ -78,6 +78,47 @@ def _apply_color_css(overlay: Gtk.Overlay, colors: list[tuple[int, int, int]]):
         overlay.add_css_class("cover-cell-active")
 
 
+def _placeholder_rgb(book_id: int) -> tuple[int, int, int]:
+    """Stable, mid-saturation tint for a book's placeholder cover."""
+    import colorsys
+    hue = ((book_id * 2654435761) & 0xFFFFFFFF) / 0xFFFFFFFF
+    r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.42)
+    return (int(r * 255), int(g * 255), int(b * 255))
+
+
+def _apply_placeholder_css(placeholder: Gtk.Box, book_id: int):
+    """Tint the placeholder background from a stable per-book hue."""
+    old = getattr(placeholder, "_ph_provider", None)
+    if old is not None:
+        Gtk.StyleContext.remove_provider_for_display(
+            placeholder.get_display(), old,
+        )
+        placeholder._ph_provider = None
+
+    r, g, b = _placeholder_rgb(book_id)
+    provider = Gtk.CssProvider()
+    provider.load_from_string(
+        f".cover-placeholder-tinted-{book_id} {{\n"
+        f"    background: linear-gradient(160deg,\n"
+        f"        rgba({r},{g},{b}, 0.92),\n"
+        f"        rgba({max(r-40,0)},{max(g-40,0)},{max(b-40,0)}, 0.95));\n"
+        f"}}\n"
+    )
+    Gtk.StyleContext.add_provider_for_display(
+        placeholder.get_display(), provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+    )
+    placeholder._ph_provider = provider
+
+    # Drop any prior per-book class, add the new one.
+    prior = getattr(placeholder, "_ph_class", None)
+    if prior:
+        placeholder.remove_css_class(prior)
+    cls = f"cover-placeholder-tinted-{book_id}"
+    placeholder.add_css_class(cls)
+    placeholder._ph_class = cls
+
+
 def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     """Create the widget tree for a single grid cell."""
     # Fixed-ratio frame prevents ragged rows
@@ -90,11 +131,41 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     overlay.set_overflow(Gtk.Overflow.HIDDEN)
     overlay.add_css_class("cover-cell")
 
+    # Stack swaps between the cover image and a styled placeholder card.
+    stack = Gtk.Stack()
+    stack.set_transition_type(Gtk.StackTransitionType.NONE)
+    stack.set_size_request(COVER_WIDTH, COVER_HEIGHT)
+
     picture = Gtk.Picture()
     picture.set_content_fit(Gtk.ContentFit.COVER)
-    picture.set_size_request(COVER_WIDTH, COVER_HEIGHT)
     picture.add_css_class("cover-art")
-    overlay.set_child(picture)
+    stack.add_named(picture, "cover")
+
+    placeholder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    placeholder.add_css_class("cover-placeholder")
+    placeholder.set_valign(Gtk.Align.CENTER)
+    placeholder.set_halign(Gtk.Align.FILL)
+    placeholder.set_hexpand(True)
+    placeholder.set_vexpand(True)
+
+    ph_title = Gtk.Label(
+        xalign=0.5, wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=4,
+    )
+    ph_title.set_ellipsize(Pango.EllipsizeMode.END)
+    ph_title.add_css_class("cover-placeholder-title")
+    placeholder.append(ph_title)
+
+    ph_author = Gtk.Label(
+        xalign=0.5, wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=2,
+    )
+    ph_author.set_ellipsize(Pango.EllipsizeMode.END)
+    ph_author.add_css_class("cover-placeholder-author")
+    placeholder.append(ph_author)
+
+    stack.add_named(placeholder, "placeholder")
+    overlay.set_child(stack)
 
     # Title label — shown on hover via CSS
     label = Gtk.Label(
@@ -111,7 +182,11 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
 
     # Store refs so bind doesn't depend on child ordering
     frame._overlay = overlay
+    frame._stack = stack
     frame._picture = picture
+    frame._placeholder = placeholder
+    frame._ph_title = ph_title
+    frame._ph_author = ph_author
     frame._label = label
 
     list_item.set_child(frame)
@@ -123,14 +198,24 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     book = obj.book
     frame: Gtk.AspectFrame = list_item.get_child()
     overlay = frame._overlay
+    stack = frame._stack
     picture = frame._picture
     label = frame._label
 
     label.set_text(book.title)
 
+    def _show_placeholder():
+        frame._ph_title.set_text(book.title)
+        frame._ph_author.set_text(
+            ", ".join(book.authors) if book.authors else "",
+        )
+        _apply_placeholder_css(frame._placeholder, book.id)
+        stack.set_visible_child_name("placeholder")
+        picture.set_paintable(None)
+
     cover = book.cover_path
     if not cover or not cover.is_file():
-        picture.set_paintable(None)
+        _show_placeholder()
         _apply_color_css(overlay, [])
         return
 
@@ -138,8 +223,10 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     texture = get_cached_texture(cover)
     if texture is not None:
         picture.set_paintable(texture)
+        stack.set_visible_child_name("cover")
     else:
-        picture.set_paintable(None)
+        # Show the placeholder while the thumbnail decodes; swap on arrival.
+        _show_placeholder()
         book_id = book.id
 
         def _on_texture_ready(source_cover, tex):
@@ -148,6 +235,8 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
                 return
             if tex:
                 picture.set_paintable(tex)
+                stack.set_visible_child_name("cover")
+            # If tex is None the placeholder we already swapped to stays put.
 
         request_texture(cover, _on_texture_ready)
 
@@ -181,6 +270,19 @@ def _unbind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
         )
         overlay._color_provider = None
     overlay.remove_css_class("cover-cell-active")
+
+    # Drop placeholder per-book CSS provider too.
+    placeholder = frame._placeholder
+    ph_old = getattr(placeholder, "_ph_provider", None)
+    if ph_old is not None:
+        Gtk.StyleContext.remove_provider_for_display(
+            placeholder.get_display(), ph_old,
+        )
+        placeholder._ph_provider = None
+    prior = getattr(placeholder, "_ph_class", None)
+    if prior:
+        placeholder.remove_css_class(prior)
+        placeholder._ph_class = None
 
 
 def _create_cover_factory() -> Gtk.SignalListItemFactory:
@@ -328,11 +430,17 @@ class HermitageApp(Adw.Application):
         # Codex detail view (created before library loads)
         win._codex = CodexView()
 
-        # Loading state
+        # Loading state — spinner inside the StatusPage so users see motion
+        # while the SQL query runs and the first chrome paints.
         status = Adw.StatusPage(
-            title="Loading Library...",
+            title="Loading library",
+            description="Reading metadata.db…",
             icon_name="library-symbolic",
         )
+        spinner = Gtk.Spinner(spinning=True)
+        spinner.set_size_request(36, 36)
+        spinner.set_halign(Gtk.Align.CENTER)
+        status.set_child(spinner)
         win._toolbar_view.set_content(status)
 
         GLib.idle_add(self._load_library, win)
@@ -498,9 +606,22 @@ class HermitageApp(Adw.Application):
         win._title_widget.set_subtitle(f"{len(books)} books")
         self._setup_breakpoints(win, grid)
 
-        # Pre-generate thumbnails and extract colors in background threads
+        # Pre-generate thumbnails and extract colors in background threads.
+        # Show warming progress in the title subtitle until it hits 100%.
         covers = [b.cover_path for b in books if b.cover_path and b.cover_path.is_file()]
-        warm_cache(covers)
+
+        def _on_warm_progress(done: int, total: int):
+            if not win._search_entry.get_text().strip():
+                if total == 0 or done >= total:
+                    win._title_widget.set_subtitle(f"{len(books)} books")
+                else:
+                    pct = int(done * 100 / total)
+                    win._title_widget.set_subtitle(
+                        f"{len(books)} books · indexing covers ({pct}%)",
+                    )
+            return False  # one-shot dispatch
+
+        warm_cache(covers, progress=_on_warm_progress)
         warm_color_cache(books)
 
         return GLib.SOURCE_REMOVE
@@ -543,18 +664,30 @@ class HermitageApp(Adw.Application):
         win._genre_browser = GenreBrowser()
         win._genre_browser.populate(win._books)
 
+        # Empty-search-result state
+        win._no_results = Adw.StatusPage(
+            title="No matches",
+            description="Try a broader search or clear the query.",
+            icon_name="system-search-symbolic",
+        )
+
         stack = Gtk.Stack()
         stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         stack.set_transition_duration(200)
         stack.add_named(scrolled, "grid")
         stack.add_named(win._genre_browser, "genres")
+        stack.add_named(win._no_results, "no-results")
         win._view_stack = stack
 
         def _on_genre_toggled(btn):
             if btn.get_active():
                 stack.set_visible_child_name("genres")
             else:
-                stack.set_visible_child_name("grid")
+                # Honour the current filter — show "no results" if zero matches.
+                if win._filtered_model.get_n_items() == 0 and win._search_entry.get_text().strip():
+                    stack.set_visible_child_name("no-results")
+                else:
+                    stack.set_visible_child_name("grid")
 
         win._genre_btn.connect("toggled", _on_genre_toggled)
 
@@ -658,6 +791,8 @@ class HermitageApp(Adw.Application):
         if not query:
             win._filter.set_filter_func(None)
             win._title_widget.set_subtitle(f"{len(win._books)} books")
+            if not win._genre_btn.get_active():
+                win._view_stack.set_visible_child_name("grid")
             return
 
         def _apply_filter():
@@ -668,6 +803,8 @@ class HermitageApp(Adw.Application):
                 win._title_widget.set_subtitle(f"{len(win._books)} books")
                 # Restore default sort
                 HermitageApp._resort_grid(win)
+                if not win._genre_btn.get_active():
+                    win._view_stack.set_visible_child_name("grid")
                 return GLib.SOURCE_REMOVE
 
             matched = filter_books(text, win._books, win._vl_resolver)
@@ -690,6 +827,17 @@ class HermitageApp(Adw.Application):
             win._title_widget.set_subtitle(
                 f"{count} of {len(win._books)} books",
             )
+
+            # Empty-result state — only swap when the genre browser isn't active.
+            if not win._genre_btn.get_active():
+                if count == 0:
+                    win._no_results.set_description(
+                        f'No books match “{text}”. '
+                        "Try a broader search or clear the query.",
+                    )
+                    win._view_stack.set_visible_child_name("no-results")
+                else:
+                    win._view_stack.set_visible_child_name("grid")
             return GLib.SOURCE_REMOVE
 
         win._search_debounce_id = GLib.timeout_add(400, _apply_filter)

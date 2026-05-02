@@ -28,10 +28,16 @@ _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="hermitage-blur
 
 def _generate_blurred_cover(cover: Path) -> Path | None:
     """Create a heavily blurred, darkened cover for the hero banner background."""
-    from PIL import Image, ImageEnhance, ImageFilter
+    import sys
+
+    from PIL import Image, ImageEnhance, ImageFile, ImageFilter, UnidentifiedImageError
+
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
 
     try:
         stat = cover.stat()
+        if stat.st_size == 0:
+            return None
         key = f"blur:{cover}:{stat.st_mtime_ns}:{stat.st_size}"
         digest = hashlib.blake2b(key.encode(), digest_size=16).hexdigest()
         blur_path = _BLUR_CACHE_DIR / f"{digest}.jpg"
@@ -48,7 +54,11 @@ def _generate_blurred_cover(cover: Path) -> Path | None:
             img.save(blur_path, "JPEG", quality=80)
 
         return blur_path
-    except Exception:
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        print(
+            f"hermitage: hero blur failed for {cover}: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
         return None
 
 

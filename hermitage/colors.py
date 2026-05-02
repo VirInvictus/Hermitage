@@ -4,11 +4,29 @@ from __future__ import annotations
 
 import colorsys
 import json
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFile, UnidentifiedImageError
+
+# Match thumbnailer: don't bail on truncated JPEGs.
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+_warned_books: set[int] = set()
+_warn_lock = threading.Lock()
+
+
+def _warn_once(book_id: int, cover: Path, reason: str) -> None:
+    with _warn_lock:
+        if book_id in _warned_books:
+            return
+        _warned_books.add(book_id)
+    print(
+        f"hermitage: color extraction skipped for book {book_id} ({cover}): {reason}",
+        file=sys.stderr,
+    )
 
 CACHE_DIR = Path.home() / ".cache" / "hermitage" / "colors"
 SAMPLE_SIZE = (64, 64)  # Downsample before analysis for speed
@@ -80,8 +98,12 @@ def extract_colors_sync(book_id: int, cover: Path) -> list[tuple[int, int, int]]
     if not cover.is_file():
         return []
     try:
+        if cover.stat().st_size == 0:
+            _warn_once(book_id, cover, "zero-byte file")
+            return []
         colors = _sort_by_vibrancy(_quantize_colors(cover))
-    except Exception:
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        _warn_once(book_id, cover, f"{type(exc).__name__}: {exc}")
         return []
     _save_disk_cache(book_id, colors)
     with _cache_lock:

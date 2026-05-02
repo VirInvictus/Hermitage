@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import sqlite3
+import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -112,10 +116,83 @@ def _resolve_library_path() -> Path:
     )
 
 
+# ---------------------------------------------------------------------------
+# Connection (with locked-DB snapshot fallback)
+# ---------------------------------------------------------------------------
+
+# When Calibre holds a write lock on metadata.db, sqlite refuses even read-only
+# opens. We mirror cquarry's approach: copy the .db plus its -wal/-shm siblings
+# to a temp file and read from the snapshot. The snapshot path is cached so a
+# second _connect() reuses it instead of copying twice, and atexit unlinks it.
+
+_snapshot_path: str | None = None
+_snapshot_notified: bool = False
+
+
+def _open_ro(path: str) -> sqlite3.Connection:
+    """Open *path* read-only via URI."""
+    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+
+
+def _make_snapshot(db_path: Path) -> str:
+    """Copy metadata.db (+ -wal/-shm) to a tempfile; return its path."""
+    fd, tmp = tempfile.mkstemp(suffix=".db", prefix="hermitage_")
+    os.close(fd)
+    shutil.copy2(db_path, tmp)
+    for suffix in ("-wal", "-shm"):
+        sibling = Path(str(db_path) + suffix)
+        if sibling.exists():
+            shutil.copy2(sibling, tmp + suffix)
+    return tmp
+
+
+def _cleanup_snapshot():
+    """atexit hook — remove the snapshot files if any were created."""
+    global _snapshot_path
+    if not _snapshot_path:
+        return
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            os.unlink(_snapshot_path + suffix)
+        except OSError:
+            pass
+    _snapshot_path = None
+
+
+atexit.register(_cleanup_snapshot)
+
+
 def _connect() -> sqlite3.Connection:
+    global _snapshot_path, _snapshot_notified
+
+    # If we already fell back to a snapshot earlier in this process, reuse it.
+    if _snapshot_path is not None:
+        conn = _open_ro(_snapshot_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
     db_path = _resolve_library_path()
-    uri = f"file:{db_path}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    conn = _open_ro(str(db_path))
+    try:
+        # Probe — sqlite defers the error until first query when the DB is locked.
+        conn.execute("SELECT 1 FROM books LIMIT 1")
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.OperationalError as exc:
+        conn.close()
+        if "locked" not in str(exc).lower():
+            raise
+
+    # Locked — snapshot it and reopen.
+    if not _snapshot_notified:
+        print(
+            "hermitage: metadata.db is locked (Calibre is running) — "
+            "reading from a snapshot copy.",
+            file=sys.stderr,
+        )
+        _snapshot_notified = True
+    _snapshot_path = _make_snapshot(db_path)
+    conn = _open_ro(_snapshot_path)
     conn.row_factory = sqlite3.Row
     return conn
 

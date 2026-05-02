@@ -1,5 +1,76 @@
 # Hermitage — Patch Notes
 
+## v0.9.0 (2026-05-01) — Phase 7 Complete
+
+---
+
+### New Features
+
+**Database lock fallback.** When Calibre holds a write lock on `metadata.db`,
+sqlite refuses even read-only opens — Hermitage previously hard-failed at
+launch. The new path mirrors `cquarry`'s `CalibreDB._open`: open with
+`mode=ro`, run a probe `SELECT 1 FROM books LIMIT 1`, and on
+`OperationalError` containing `"locked"` we `shutil.copy2` the `.db` plus its
+`-wal` and `-shm` siblings to a `tempfile.mkstemp` path and reopen against the
+snapshot. The snapshot path is cached in module state so the second
+`_connect()` (used by `load_virtual_libraries`) reuses it instead of copying
+twice. An `atexit` hook unlinks the snapshot files on shutdown. A one-line
+note is printed to stderr the first time we fall back so the user knows
+they're reading from a snapshot.
+
+**Placeholder covers.** Books without a `cover.jpg` (or whose thumbnail
+generation fails) used to render as blank cells. The grid factory now builds
+a `Gtk.Stack` with two pages: the existing `Gtk.Picture` and a new
+`.cover-placeholder` `Gtk.Box` that displays the title and author centred on
+a tinted card. The tint is a stable per-book gradient — hue derived from a
+Knuth-multiplier hash of `book.id`, fixed mid-saturation HSV — so a missing
+cover is still visually distinct and consistent across sessions. The
+placeholder is also shown transiently while a thumbnail is decoding, so first
+paint is never blank. CSS provider lifecycle is handled in `_unbind_cover`
+alongside the existing per-cell color provider cleanup.
+
+**No-results state.** When a search returns zero matches, the grid is
+swapped for an `Adw.StatusPage` ("No matches — Try a broader search or clear
+the query.") via the existing view stack. The status page interpolates the
+current query into its description so users immediately see what they
+searched for. The genre toggle still wins — opening the genre browser hides
+the no-results page until you toggle back. Clearing the search bar restores
+the grid in either case.
+
+**Loading progress.** The static "Loading Library…" page now hosts a
+`Gtk.Spinner` for visible motion during the initial DB read. After the grid
+appears, thumbnail cache warming reports progress in the title bar subtitle:
+`"4272 books · indexing covers (62%)"`. The subtitle drops the suffix once
+warming hits 100%, and never overrides an active search count.
+
+### Enhancements
+
+**Corrupt-cover hardening.** `thumbnailer._generate_thumbnail`,
+`colors.extract_colors_sync`, and `codex._generate_blurred_cover` previously
+swallowed every exception silently (`except Exception: return None`),
+which made corrupt or zero-byte cover files invisible to debugging. They now
+catch the specific Pillow exceptions (`UnidentifiedImageError`, `OSError`,
+`ValueError`), explicitly check for zero-byte files, and emit a one-line
+warning to stderr per offending path (deduplicated via a `set` + lock so
+recycled cells don't spam). All three modules also enable
+`PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True` so partially-readable JPEGs
+still produce something rather than failing outright.
+
+### Structural Improvements
+
+**`thumbnailer.warm_cache` accepts a progress callback.** Optional
+`progress(done, total)` parameter, dispatched on the main thread via
+`GLib.idle_add` once per ~32 completions plus a final call. The throttling
+keeps the title-bar update from saturating the GTK main loop on a 4,272-book
+library while still feeling responsive.
+
+**Snapshot cleanup.** New module-level `_snapshot_path`, `_snapshot_notified`,
+`_make_snapshot()`, `_open_ro()`, and `_cleanup_snapshot()` in `database.py`.
+The atexit registration is unconditional — cleanup short-circuits when no
+snapshot was created, so there is no cost in the common case.
+
+---
+
 ## v0.8.0 (2026-04-11) — Phases 5 & 6 Complete
 
 ---

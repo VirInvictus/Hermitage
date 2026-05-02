@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +15,23 @@ gi.require_version("Gdk", "4.0")
 
 from gi.repository import Gdk, GLib
 
-from PIL import Image
+from PIL import Image, ImageFile, UnidentifiedImageError
+
+# Tolerate partially-downloaded / truncated cover JPEGs — Pillow will yield
+# whatever scanlines it managed to decode rather than throwing.
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+# Paths we've already warned about, so a recycled cell doesn't spam stderr.
+_warned_paths: set[Path] = set()
+_warn_lock = threading.Lock()
+
+
+def _warn_once(cover: Path, reason: str) -> None:
+    with _warn_lock:
+        if cover in _warned_paths:
+            return
+        _warned_paths.add(cover)
+    print(f"hermitage: skipping cover {cover}: {reason}", file=sys.stderr)
 
 THUMB_WIDTH = 360   # 2x grid cell for HiDPI
 THUMB_HEIGHT = 540
@@ -50,8 +67,18 @@ def _generate_thumbnail(cover: Path) -> Path | None:
     """Write a thumbnail to disk if it doesn't already exist."""
     try:
         thumb = _thumb_path(cover)
-        if thumb.is_file():
-            return thumb
+    except OSError as exc:
+        _warn_once(cover, f"stat failed ({exc})")
+        return None
+
+    if thumb.is_file():
+        return thumb
+
+    if cover.stat().st_size == 0:
+        _warn_once(cover, "zero-byte file")
+        return None
+
+    try:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         with Image.open(cover) as img:
             img.thumbnail((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
@@ -59,7 +86,8 @@ def _generate_thumbnail(cover: Path) -> Path | None:
                 img = img.convert("RGB")
             img.save(thumb, "JPEG", quality=THUMB_QUALITY, optimize=True)
         return thumb
-    except Exception:
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        _warn_once(cover, f"thumbnail failed ({type(exc).__name__}: {exc})")
         return None
 
 
@@ -128,7 +156,30 @@ def request_texture(cover: Path, callback):
     _executor.submit(_work)
 
 
-def warm_cache(covers: list[Path]):
-    """Pre-generate disk thumbnails for a batch of covers (fire-and-forget)."""
+def warm_cache(covers: list[Path], progress=None):
+    """Pre-generate disk thumbnails for a batch of covers (fire-and-forget).
+
+    If *progress* is given, it is invoked on the **main thread** as
+    ``progress(done, total)`` — once per ~32 completions plus a final call.
+    """
+    total = len(covers)
+    if total == 0:
+        if progress:
+            GLib.idle_add(progress, 0, 0)
+        return
+
+    counter = {"done": 0}
+    counter_lock = threading.Lock()
+
+    def _track(cover: Path):
+        _generate_thumbnail(cover)
+        if progress is None:
+            return
+        with counter_lock:
+            counter["done"] += 1
+            done = counter["done"]
+        if done == total or done % 32 == 0:
+            GLib.idle_add(progress, done, total)
+
     for cover in covers:
-        _executor.submit(_generate_thumbnail, cover)
+        _executor.submit(_track, cover)

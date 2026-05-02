@@ -50,11 +50,11 @@
 - [x] **Author/series browse via Codex:** Clicking author or series in the detail view populates the search, effectively browsing by that dimension.
 
 ## Phase 7: Empty States & Error Resilience
-- [ ] **Placeholder covers:** Generate a styled placeholder for books without `cover.jpg` — display the title and author on a tinted card using the dominant color of the app accent or a neutral tone. No more invisible cells.
-- [ ] **No-results state:** When a search returns zero matches, show an `Adw.StatusPage` with a relevant message and suggestion (e.g., "No books match — try a broader search"). Replace the empty grid, don't just leave it blank.
-- [ ] **Loading progress:** Replace the static "Loading Library..." status page with an indication of progress — book count loaded, thumbnail cache warming percentage, or at minimum a spinner with a subtitle that updates.
-- [ ] **Graceful degradation:** Handle corrupt covers (truncated JPEG, zero-byte files) without crashing the thumbnail or color pipelines. Surface warnings in the UI or console log rather than silently swallowing them.
-- [ ] **Database lock handling:** If `metadata.db` is locked by Calibre, transparently fall back to a snapshot copy instead of failing or hanging. Mirror the approach in `../CalibreQuarry/src/cquarry/db.py` (`CalibreDB._open`): try `mode=ro` first; on `OperationalError` containing "locked", `shutil.copy2` the `.db` plus its `-wal` and `-shm` siblings to a `tempfile.mkstemp` path and open the copy. Log a one-line note that we're reading from a snapshot. Clean up the temp files on shutdown.
+- [x] **Placeholder covers:** Generate a styled placeholder for books without `cover.jpg` — display the title and author on a tinted card using the dominant color of the app accent or a neutral tone. No more invisible cells.
+- [x] **No-results state:** When a search returns zero matches, show an `Adw.StatusPage` with a relevant message and suggestion (e.g., "No books match — try a broader search"). Replace the empty grid, don't just leave it blank.
+- [x] **Loading progress:** Replace the static "Loading Library..." status page with an indication of progress — book count loaded, thumbnail cache warming percentage, or at minimum a spinner with a subtitle that updates.
+- [x] **Graceful degradation:** Handle corrupt covers (truncated JPEG, zero-byte files) without crashing the thumbnail or color pipelines. Surface warnings in the UI or console log rather than silently swallowing them.
+- [x] **Database lock handling:** If `metadata.db` is locked by Calibre, transparently fall back to a snapshot copy instead of failing or hanging. Mirror the approach in `../CalibreQuarry/src/cquarry/db.py` (`CalibreDB._open`): try `mode=ro` first; on `OperationalError` containing "locked", `shutil.copy2` the `.db` plus its `-wal` and `-shm` siblings to a `tempfile.mkstemp` path and open the copy. Log a one-line note that we're reading from a snapshot. Clean up the temp files on shutdown.
 
 ## Phase 8: Reading History
 - [ ] **Local history database:** A small SQLite database at `~/.local/share/hermitage/history.db` tracking which books have been opened via the "Read" button, with timestamps. Hermitage never writes to Calibre's database.
@@ -63,6 +63,7 @@
 - [ ] **Codex integration:** Show "Last read: 3 days ago" or similar in the Codex metadata section when a book has history.
 
 ## Phase 9: Polish & Visual Refinement
+- [ ] **Typography pass:** Establish a proper type system — distinct, high-quality fonts for the three roles in the UI. Display face for the Codex hero title and grid hover label, humanist body face for synopses and Codex metadata, and a tighter geometric/condensed face (or carefully tuned small-caps) for tag pills, section labels, and genre-browser pills. Tune size scale, weights, leading, kerning, and letter-spacing for each context. Audit against Adwaita defaults across the grid, Codex, GenreBrowser, sort menu, and preferences. The result should look obviously curated — not the GNOME default sans.
 - [ ] **About dialog:** `Adw.AboutDialog` with version, description, license (GPL-3.0), author, and links (source repo, Ko-fi).
 - [ ] **Animations:** Smooth transitions for codex open/close, search bar slide, VL sidebar toggle. Review existing transitions for consistency and timing.
 - [ ] **Grid scroll position memory:** Remember scroll position when returning from a filtered view or after closing the codex. Don't jump back to the top.
@@ -82,7 +83,7 @@
 
 Port as much of `../CalibreQuarry` (the `cquarry` CLI) into Hermitage as makes sense for a GUI library viewer. CalibreQuarry already has battle-tested logic for many things Hermitage will eventually want; rather than rewrite, lift the modules in `../CalibreQuarry/src/cquarry/` and adapt them to our `Book` dataclass and GTK surfaces.
 
-- [ ] **DB lock fallback** (see Phase 7 bullet) — port `CalibreDB._open` into `hermitage/database.py`. This is the highest-value port and a prerequisite for the rest, since cquarry runs against the same locked-DB conditions Hermitage will hit.
+- [x] **DB lock fallback** (see Phase 7 bullet) — port `CalibreDB._open` into `hermitage/database.py`. This is the highest-value port and a prerequisite for the rest, since cquarry runs against the same locked-DB conditions Hermitage will hit.
 - [ ] **Custom columns:** port `db.get_custom_columns()` and `db.load_custom_column()`. Surface user-defined Calibre custom columns in the Codex (read-only) and as searchable fields.
 - [ ] **Identifiers:** port `db.get_identifiers()` so the Codex can render ISBN / Goodreads / etc. links from the `identifiers` table.
 - [ ] **Library analytics & stats:** evaluate `cquarry/modes/{stats,analytics,audit}.py` for a "Library Insights" page (book counts by tag/author/series, missing-cover audit, format coverage).

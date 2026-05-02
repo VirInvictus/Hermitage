@@ -43,6 +43,30 @@ gridview > child {
     padding: 2px;
 }
 
+/* ---- Placeholder cover (no cover.jpg or generation failed) ---- */
+
+.cover-placeholder {
+    border-radius: 6px;
+    padding: 14px 12px;
+    background: linear-gradient(160deg,
+        alpha(@accent_bg_color, 0.55),
+        alpha(black, 0.65));
+}
+
+.cover-placeholder-title {
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    text-shadow: 0 1px 3px alpha(black, 0.6);
+}
+
+.cover-placeholder-author {
+    color: alpha(white, 0.78);
+    font-weight: 500;
+    font-size: 11px;
+    text-shadow: 0 1px 3px alpha(black, 0.6);
+}
+
 /* ---- Codex (Detail View) ---- */
 
 .codex-hero {
