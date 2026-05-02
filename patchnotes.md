@@ -1,5 +1,48 @@
 # Hermitage — Patch Notes
 
+## v0.13.0 (2026-05-01) — Library Insights
+
+---
+
+### New Features
+
+**Library Insights window.** `Adw.Window` opened from the hamburger menu's
+new "Library Insights" item. Lives in `hermitage/insights.py` and operates
+entirely on the in-memory book list — no extra DB query, no background
+work — so it pops open instantly on a 4,272-book library.
+
+Sections, top to bottom:
+
+- **At a glance** — five FlowBox tiles (Fraunces 28px display number on
+  top, Plex Condensed uppercase label below): Books, Authors, Series,
+  Tags, Identifiers. Plus a one-line dim-label note for the rated count
+  and average rating when any books carry one.
+- **Top Tags** — top 15 tags by book count, each row a name + proportional
+  `Gtk.LevelBar` + count. Bars share a single `max_value` so visual
+  weight is comparable.
+- **Top Authors** — same pattern, top 15 authors.
+- **Formats** — every format in the library, sorted by frequency.
+- **Audit** — `Adw.ActionRow` + `boxed-list` rows for the four hygiene
+  checks: missing cover files, books with no format files, books with no
+  tags, books with no external IDs. Each row shows `N books (P%) — first,
+  second, third, +X more` so the user can see what they'd be fixing.
+
+### Structural Improvements
+
+**`hermitage/insights.py`.** New module exposing `LibrarySummary`
+dataclass (slots) and a single `summarize(books)` function that does all
+aggregation in one pass with `collections.Counter`. The window is dumb —
+it reads pre-computed values and renders. Splitting compute from render
+keeps the constructor predictable and makes the summary easy to unit
+test or repurpose.
+
+**Reusable tile + bar-row helpers.** Internal `_make_tile`,
+`_make_bar_row`, `_make_audit_row`, and `_section_title` keep render
+code uniform; future sections (decade distribution, identifier-type
+breakdown, etc.) can hang off the same primitives.
+
+---
+
 ## v0.12.0 (2026-05-01) — Series Browser
 
 ---

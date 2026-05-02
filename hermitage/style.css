@@ -224,6 +224,46 @@ gridview > child {
     padding: 4px 14px;
 }
 
+/* ---- Library Insights window ---- */
+
+.insights-tile {
+    border-radius: 12px;
+    min-width: 110px;
+}
+
+.insights-tile-value {
+    font-family: "Fraunces", "Source Serif 4", serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.insights-tile-label {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: alpha(@window_fg_color, 0.55);
+}
+
+.insights-row-name {
+    font-family: "Inter Variable", "Inter", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.insights-row-count {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: alpha(@window_fg_color, 0.6);
+}
+
+.insights-bar {
+    min-height: 6px;
+}
+
 /* ---- Series Browser ---- */
 
 .series-card {

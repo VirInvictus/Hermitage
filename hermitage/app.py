@@ -378,6 +378,10 @@ class HermitageApp(Adw.Application):
         about_action.connect("activate", self._on_about)
         self.add_action(about_action)
 
+        insights_action = Gio.SimpleAction(name="insights")
+        insights_action.connect("activate", self._on_insights)
+        self.add_action(insights_action)
+
         # Sort field action (stateful string)
         from hermitage.config import get as cfg_get
         sort_field_action = Gio.SimpleAction.new_stateful(
@@ -432,6 +436,13 @@ class HermitageApp(Adw.Application):
 
         prefs = PreferencesWindow(win, on_settings_changed=_on_settings_changed)
         prefs.present()
+
+    def _on_insights(self, action, param):
+        win = self.props.active_window
+        if not win or not hasattr(win, "_books"):
+            return
+        from hermitage.insights import InsightsWindow
+        InsightsWindow(win, win._books).present()
 
     def _on_about(self, action, param):
         win = self.props.active_window
@@ -596,6 +607,7 @@ class HermitageApp(Adw.Application):
         menu_btn = Gtk.MenuButton(icon_name="open-menu-symbolic")
         menu_btn.set_tooltip_text("Main menu")
         menu = Gio.Menu()
+        menu.append("Library Insights", "app.insights")
         menu.append("Preferences", "app.preferences")
         menu.append("About Hermitage", "app.about")
         menu_btn.set_menu_model(menu)
