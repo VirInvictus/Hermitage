@@ -85,6 +85,13 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="0.15.0" date="2026-05-01">
+      <description>
+        <p>Flatpak manifest targeting GNOME 50 — builds end-to-end with
+           flatpak-builder; bundled hermitage-verify reads the host
+           library through the sandbox.</p>
+      </description>
+    </release>
     <release version="0.14.0" date="2026-05-01">
       <description>
         <p>Application icon — Fraunces-inspired serif H monogram on a deep

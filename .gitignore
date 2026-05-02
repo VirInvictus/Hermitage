@@ -134,6 +134,11 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# Flatpak build artifacts
+.flatpak-builder/
+build-flatpak/
+*.flatpak
+
 # Environments
 .env
 .envrc

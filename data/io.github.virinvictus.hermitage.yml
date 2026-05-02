@@ -1,0 +1,135 @@
+# Flatpak manifest for Hermitage
+#
+# Build:
+#   flatpak-builder --user --install --force-clean build-dir \
+#     data/io.github.virinvictus.hermitage.yml
+#
+# Run:
+#   flatpak run io.github.virinvictus.hermitage
+#
+# The GNOME 50 runtime ships Python 3.13 + PyGObject 3.56; PyYAML and
+# Pillow are not in the runtime so they're packaged as modules below
+# (sdist sources pinned by sha256 for offline builds).
+---
+app-id: io.github.virinvictus.hermitage
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: hermitage
+
+# The metainfo.xml ships as-is to /share/metainfo and software centers
+# read it directly. Skip flatpak-builder's bundled appstreamcli-compose
+# pass — it requires gdk-pixbuf to rasterise the SVG icon, and the
+# librsvg pixbuf loader isn't always present on the build host
+# (Fedora 44 dropped it). Skipping is harmless: Flathub re-runs compose
+# against its own toolchain at submission time.
+appstream-compose: false
+
+# Sandbox permissions — minimal. Display + DRI for GTK4/Wayland; home
+# for ~/.config / ~/.cache / ~/.local/share / Calibre libraries living
+# under $HOME. Arbitrary paths outside $HOME are reached via the GNOME
+# file-chooser portal (no extra permission needed).
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=home
+
+# Cleanup once the install set is built — the SDK pulls in build-only
+# headers and pyc cache that we don't need at runtime.
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/man
+  - /share/doc
+  - '*.la'
+  - '*.a'
+
+modules:
+
+  # Cython — build dependency for PyYAML's _yaml C extension on
+  # Python 3.13+. Installed first so PyYAML can pick it up off the
+  # /app PYTHONPATH that flatpak-builder threads through subsequent
+  # modules. The runtime SDK already ships setuptools, so we don't
+  # need to package that separately.
+  - name: python3-cython
+    buildsystem: simple
+    build-commands:
+      - >-
+        pip3 install --verbose --exists-action=i --no-index
+        --no-build-isolation
+        --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} Cython
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/91/85/7574c9cd44b69a27210444b6650f6477f56c75fee1b70d7672d3e4166167/cython-3.2.4.tar.gz
+        sha256: 84226ecd313b233da27dc2eb3601b4f222b8209c3a7216d8733b031da1dc64e6
+
+  # PyYAML — needed by hermitage.config. Builds the libyaml C binding
+  # against the SDK's libyaml-devel. --no-build-isolation lets the
+  # build see the SDK's setuptools and the Cython we just installed.
+  - name: python3-pyyaml
+    buildsystem: simple
+    build-commands:
+      - >-
+        pip3 install --verbose --exists-action=i --no-index
+        --no-build-isolation
+        --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} PyYAML
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz
+        sha256: d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f
+
+  # Pillow — used by the thumbnailer, color extractor, and codex blur.
+  # Pinned at 11.x — Pillow 12 dragged in pybind11 (and a transitive
+  # scikit-build-core), which more than doubles the build-dep surface.
+  # 11.3.0 still gets us LANCZOS, GaussianBlur, and the rest of what we
+  # actually use. Builds against libjpeg-turbo + libpng + zlib from the SDK.
+  - name: python3-pillow
+    buildsystem: simple
+    build-commands:
+      - >-
+        pip3 install --verbose --exists-action=i --no-index
+        --no-build-isolation
+        --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} Pillow
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/f3/0d/d0d6dea55cd152ce3d6767bb38a8fc10e33796ba4ba210cbab9354b6d238/pillow-11.3.0.tar.gz
+        sha256: 3828ee7586cd0b2091b6209e5ad53e20d0649bbe87164a459d0676e035e8f523
+
+  # Hermitage itself + its desktop / icon / metainfo data files.
+  - name: hermitage
+    buildsystem: simple
+    build-commands:
+      # Install the package (includes hermitage.fonts/*.ttf via package-data).
+      - >-
+        pip3 install --verbose --no-deps --no-build-isolation
+        --prefix=${FLATPAK_DEST} .
+      # Pre-render PNG sizes from the master SVG. We deliberately don't
+      # install the SVG itself — flatpak-builder's export step validates
+      # icons via gdk-pixbuf, and the librsvg pixbuf loader is no longer
+      # shipped on modern Fedora (GTK4 renders SVG natively without it),
+      # so an SVG-in-export trips a "Format not recognized" error.
+      # GTK4 apps look up rasterised sizes from the hicolor theme just
+      # fine, and software centers prefer PNGs anyway.
+      - |
+        for sz in 32 48 64 128 256 512; do
+          mkdir -p ${FLATPAK_DEST}/share/icons/hicolor/${sz}x${sz}/apps
+          rsvg-convert -w ${sz} -h ${sz} \
+            data/icons/hicolor/scalable/apps/io.github.virinvictus.hermitage.svg \
+            -o ${FLATPAK_DEST}/share/icons/hicolor/${sz}x${sz}/apps/io.github.virinvictus.hermitage.png
+        done
+      # Desktop entry
+      - >-
+        install -Dm644 data/io.github.virinvictus.hermitage.desktop
+        ${FLATPAK_DEST}/share/applications/io.github.virinvictus.hermitage.desktop
+      # AppStream metainfo
+      - >-
+        install -Dm644 data/io.github.virinvictus.hermitage.metainfo.xml
+        ${FLATPAK_DEST}/share/metainfo/io.github.virinvictus.hermitage.metainfo.xml
+    sources:
+      - type: dir
+        path: ..

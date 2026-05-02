@@ -1,5 +1,66 @@
 # Hermitage — Patch Notes
 
+## v0.15.0 (2026-05-01) — Flatpak Manifest
+
+---
+
+### New Features
+
+**Flatpak manifest** at `data/io.github.virinvictus.hermitage.yml`,
+targeting the `org.gnome.Platform//50` runtime. Builds end-to-end with
+`flatpak-builder` and produces an 8 MB installable that runs the GUI
+and the bundled `hermitage-verify` reads the host library through the
+sandbox in ~195 ms (110 ms DB load + 85 ms path scan against the
+4,272-book library — about 2× the native time, well within the
+<200 ms spec).
+
+Module chain (offline-buildable, sdist sources pinned by sha256):
+
+| Module | Version | Notes |
+|---|---|---|
+| `python3-cython` | 3.2.4 | Build dep — PyYAML's `_yaml` extension on Py 3.13+ |
+| `python3-pyyaml` | 6.0.3 | `--no-build-isolation` so the SDK's setuptools is visible |
+| `python3-pillow` | 11.3.0 | Pinned at 11.x to avoid Pillow 12's pybind11 → scikit-build-core dep cascade |
+| `hermitage` | 0.15.0 | local `dir` source, install plus icon/desktop/metainfo placement |
+
+Sandbox permissions (`finish-args`) are intentionally minimal:
+`--share=ipc`, `--socket=wayland --socket=fallback-x11`,
+`--device=dri`, `--filesystem=home`. Arbitrary library paths outside
+`$HOME` reach the app via the GNOME file-chooser portal — no extra
+permission needed. Read-button file launches use the OpenURI portal.
+
+### Enhancements
+
+**`requires-python` relaxed from `>= 3.14` to `>= 3.13`.** GNOME 50
+runtime ships Python 3.13.13. The codebase uses no 3.14-only syntax
+(`from __future__ import annotations` + `@dataclass(slots=True)` are
+both 3.10+), so 3.13 runs cleanly. The local Fedora dev environment
+still uses 3.14 — this just opens the sandboxed runtime.
+
+**`build-backend` switched to `setuptools.build_meta`.** The previous
+`setuptools.backends._legacy:_Backend` is too new for the SDK's
+setuptools 80.x; the standard `build_meta` is universally supported
+and identical in behaviour for our pyproject.
+
+**Pre-rendered PNG icons at 32 / 48 / 64 / 128 / 256 / 512 px.**
+Generated from `logo.svg` via `rsvg-convert` during the build. The
+master SVG is intentionally **not** installed — flatpak-builder's
+export step validates icons via `gdk-pixbuf`, and the `librsvg2-pixbuf`
+loader is no longer shipped on Fedora 44+ (GTK4 renders SVG natively
+without it). Software centers prefer PNGs anyway.
+
+**`appstream-compose: false`.** The metainfo.xml ships verbatim to
+`/share/metainfo`; in-build `appstreamcli compose` is skipped to
+avoid the same gdk-pixbuf SVG-loader issue. Flathub re-runs compose
+at submission time against its own toolchain.
+
+### Structural Improvements
+
+**`.gitignore`** picks up `.flatpak-builder/`, `build-flatpak/`, and
+`*.flatpak` so the build cache and produced bundle don't get tracked.
+
+---
+
 ## v0.14.0 (2026-05-01) — Application Icon
 
 ---
