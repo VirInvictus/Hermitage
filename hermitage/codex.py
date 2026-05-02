@@ -86,6 +86,33 @@ def _clean_html(raw: str) -> str:
 _FORMAT_PRIORITY = ["EPUB", "PDF", "MOBI", "AZW3", "CBZ", "CBR", "DJVU", "TXT"]
 
 
+# ---------------------------------------------------------------------------
+# Identifier → external URL map
+# ---------------------------------------------------------------------------
+#
+# Calibre stores book identifiers as (type, value) tuples. We render them as
+# "Find this book on …" link buttons in the Codex; only types we know how to
+# turn into a URL get a button. Display label first, URL formatter second —
+# the formatter receives the raw value with no escaping (every site we link
+# uses opaque ids or already-encoded paths).
+
+_IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
+    "isbn":          ("Open Library",   "https://openlibrary.org/isbn/{}"),
+    "goodreads":     ("Goodreads",      "https://www.goodreads.com/book/show/{}"),
+    "google":        ("Google Books",   "https://books.google.com/books?id={}"),
+    "amazon":        ("Amazon",         "https://www.amazon.com/dp/{}"),
+    "asin":          ("Amazon",         "https://www.amazon.com/dp/{}"),
+    "mobi-asin":     ("Amazon",         "https://www.amazon.com/dp/{}"),
+    "barnesnoble":   ("Barnes & Noble", "https://www.barnesandnoble.com/s/{}"),
+    "storygraph":    ("StoryGraph",     "https://app.thestorygraph.com/books/{}"),
+    "hardcover":     ("Hardcover",      "https://hardcover.app/books/{}"),
+    "fictiondb":     ("FictionDB",      "https://www.fictiondb.com/title/{}"),
+    "doi":           ("DOI",            "https://doi.org/{}"),
+    "url":           ("Link",           "{}"),
+    "uri":           ("Link",           "{}"),
+}
+
+
 def _find_format_file(book: Book) -> Path | None:
     """Locate the best readable file for a book, preferring EPUB > PDF > etc."""
     root = library_root()
@@ -258,6 +285,21 @@ class CodexView(Gtk.Box):
         self._tags_flow.add_css_class("codex-tags")
         body_inner.append(self._tags_flow)
 
+        # Identifiers section ("Find this book on …")
+        self._idents_header = Gtk.Label(label="Find this book on", xalign=0)
+        self._idents_header.add_css_class("codex-section-title")
+        body_inner.append(self._idents_header)
+
+        self._idents_flow = Gtk.FlowBox()
+        self._idents_flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._idents_flow.set_homogeneous(False)
+        self._idents_flow.set_max_children_per_line(20)
+        self._idents_flow.set_min_children_per_line(1)
+        self._idents_flow.set_row_spacing(6)
+        self._idents_flow.set_column_spacing(6)
+        self._idents_flow.add_css_class("codex-tags")
+        body_inner.append(self._idents_flow)
+
         # Synopsis section
         self._synopsis_header = Gtk.Label(label="Synopsis", xalign=0)
         self._synopsis_header.add_css_class("codex-section-title")
@@ -339,6 +381,27 @@ class CodexView(Gtk.Box):
         else:
             self._tags_header.set_visible(False)
             self._tags_flow.set_visible(False)
+
+        # Identifiers — link buttons for the types we know how to URL-format
+        self._clear_flow_box(self._idents_flow)
+        linkable = [
+            (key, val) for key, val in book.identifiers.items()
+            if key in _IDENTIFIER_LINKS and val
+        ]
+        if linkable:
+            self._idents_header.set_visible(True)
+            self._idents_flow.set_visible(True)
+            for key, val in linkable:
+                label, url_fmt = _IDENTIFIER_LINKS[key]
+                btn = Gtk.Button(label=label)
+                btn.add_css_class("codex-tag-pill")
+                btn.add_css_class("codex-link-btn")
+                btn.set_tooltip_text(f"Open {label} ({key}: {val})")
+                btn.connect("clicked", self._on_identifier_clicked, url_fmt.format(val))
+                self._idents_flow.append(btn)
+        else:
+            self._idents_header.set_visible(False)
+            self._idents_flow.set_visible(False)
 
         # Synopsis
         if book.comment:
@@ -476,6 +539,11 @@ class CodexView(Gtk.Box):
         """Search for a specific tag."""
         if self.on_search:
             self.on_search(f'tags:"{tag}"')
+
+    def _on_identifier_clicked(self, btn, url: str):
+        """Open an external identifier URL in the system browser."""
+        launcher = Gtk.UriLauncher(uri=url)
+        launcher.launch(self.get_root(), None, None)
 
     def _on_read_clicked(self, btn):
         """Launch the book in the system's default reader."""

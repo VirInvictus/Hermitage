@@ -28,6 +28,7 @@ class Book:
     formats: list[str] = field(default_factory=list)
     pubdate: str | None = None
     timestamp: str | None = None  # date added to Calibre
+    identifiers: dict[str, str] = field(default_factory=dict)
 
     @property
     def cover_path(self) -> Path | None:
@@ -208,8 +209,16 @@ def load_library() -> list[Book]:
     conn = _connect()
     try:
         rows = conn.execute(_BOOKS_QUERY).fetchall()
+        # Bulk-load identifiers in a single query — avoids N+1 on the hot path.
+        ident_rows = conn.execute(
+            "SELECT book, type, val FROM identifiers"
+        ).fetchall()
     finally:
         conn.close()
+
+    by_book: dict[int, dict[str, str]] = {}
+    for ir in ident_rows:
+        by_book.setdefault(ir["book"], {})[ir["type"]] = ir["val"]
 
     books: list[Book] = []
     for r in rows:
@@ -228,6 +237,7 @@ def load_library() -> list[Book]:
             formats=r["formats"].split(",") if r["formats"] else [],
             pubdate=r["pubdate"],
             timestamp=r["timestamp"],
+            identifiers=by_book.get(r["id"], {}),
         ))
     return books
 

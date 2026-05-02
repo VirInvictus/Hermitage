@@ -264,6 +264,20 @@ def _match_field(book: Book, field: str, value: str, exact: bool) -> bool:
     """Check if a book's field matches the given value."""
     vals = _field_values(book, field)
     value_lower = value.lower()
+
+    # Hierarchical tag semantics — match cquarry: tags:Foo finds the exact tag
+    # 'Foo' AND any descendant tag prefixed by 'Foo.'. This is the only field
+    # that uses dot-separated hierarchy in Calibre, so the special case stays
+    # narrow. Substring fallback is intentionally gone for tags — it produced
+    # absurd matches (tags:Fic matching 'Sci-Fi' because of the substring).
+    if field in ("tag", "tags") and not exact:
+        prefix = value_lower + "."
+        for v in vals:
+            v_lower = v.strip().lower()
+            if v_lower == value_lower or v_lower.startswith(prefix):
+                return True
+        return False
+
     for v in vals:
         v_lower = v.lower()
         if exact:

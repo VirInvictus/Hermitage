@@ -1,5 +1,56 @@
 # Hermitage — Patch Notes
 
+## v0.11.0 (2026-05-01) — Identifiers & Tag Hierarchy Parity
+
+---
+
+### New Features
+
+**Identifier links in the Codex.** A new "Find this book on" section
+between Tags and Synopsis renders one pill button per known identifier
+type. Clicking a pill opens the corresponding external page via
+`Gtk.UriLauncher`. Twelve types currently URL-formatted: `isbn` →
+Open Library, `goodreads`, `google` Books, `amazon`/`asin`/`mobi-asin` →
+Amazon, `barnesnoble`, `storygraph`, `hardcover`, `fictiondb`, `doi`,
+and bare `url`/`uri`. Unknown types are silently skipped — they remain
+in the underlying data, they just don't get a pill until we know how to
+turn them into a URL. With 14,275 identifier rows across the test
+library this surface is meaningful; about 75% of books get at least one
+clickable pill.
+
+### Enhancements
+
+**Tag-hierarchy search parity with cquarry.** `hermitage/search.py`
+previously did naive substring matching on each tag, so `tags:Fic`
+matched any tag containing the letters "Fic" (including, absurdly,
+"Sci-Fi"). The matcher now follows cquarry's `_match_tags` semantics
+exactly: non-exact `tags:Foo` matches the literal tag `Foo`
+(case-insensitive) **or** any tag prefixed by `Foo.`. Substring
+matching is gone for tags only — the dot-separated tag tree is
+hierarchical by convention so this is the right semantic. Verified
+against the live library:
+- `tags:Fic` → 2008 books (entire `Fic.*` subtree)
+- `tags:Fantasy` → 0 (no top-level "Fantasy" tag in this library)
+- `tags:"Fic.Fantasy"` → 929 (all `Fic.Fantasy.*` descendants)
+
+`tags:"=Foo"` exact match remains exact and case-insensitive. Other
+field semantics (authors, title, series, formats) are unchanged.
+
+### Structural Improvements
+
+**`Book.identifiers: dict[str, str]`.** New field on the dataclass.
+Bulk-loaded in `database.load_library()` via a single
+`SELECT book, type, val FROM identifiers` after the main books query —
+zero N+1 risk on a 4,272-book library (DB load stays at ~60 ms).
+The merge happens in Python with one dict per book, attached during
+Book construction.
+
+**`_IDENTIFIER_LINKS` table.** Module-level dict in `codex.py` mapping
+identifier scheme → (display label, URL format). Adding a new scheme is
+a one-line edit; no other code changes needed.
+
+---
+
 ## v0.10.1 (2026-05-01) — Phase 9 Polish (almost)
 
 ---
