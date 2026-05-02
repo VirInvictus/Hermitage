@@ -1,5 +1,70 @@
 # Hermitage — Patch Notes
 
+## v0.9.1 (2026-05-01) — Bundled Typography
+
+---
+
+### New Features
+
+**Bundled type system.** Hermitage now ships its own fonts in
+`hermitage/fonts/` and registers them with the default `PangoCairo.FontMap`
+at startup via the new `hermitage/typography.py` module. The look is
+identical on every machine, with no dependency on whatever the user has
+installed system-wide and no pollution of the user's font directory — the
+registration is process-scoped via `Pango.FontMap.add_font_file()` (Pango
+1.56+, available since GTK 4.20).
+
+Three families, one role each:
+
+| Role | Family | File(s) |
+|---|---|---|
+| Display — Codex hero title, placeholder cover title, genre subsection headings, italic series text | **Fraunces** (variable serif) | `Fraunces-Variable.ttf`, `Fraunces-Italic-Variable.ttf` |
+| Body — synopsis, author line, Read button, window chrome | **Inter Variable** | `InterVariable.ttf`, `InterVariable-Italic.ttf` |
+| Label — tag pills, section labels (uppercase tracked), grid-cell hover title, metadata, genre pills | **IBM Plex Sans Condensed** | `IBMPlexSansCondensed-{Regular,Medium,SemiBold}.ttf` |
+
+All three are licensed under SIL OFL 1.1; the per-family license texts ship
+alongside the fonts (`OFL-Inter.txt`, `OFL-Fraunces.txt`,
+`OFL-IBMPlex.txt`) along with a `README.md` documenting sources and roles.
+
+**Typography pass across every styled surface.** The stylesheet now defines
+explicit `font-family`, weight, size, `letter-spacing`, and (where it
+matters) `line-height`, `text-transform`, and `font-feature-settings` for
+every text class. Highlights:
+
+- The window-wide default switches from Cantarell to Inter Variable, with
+  `font-feature-settings: "ss01", "cv11"` (Inter's modern alternates —
+  single-story `g`, open digits).
+- `.codex-title` is Fraunces 26px / 700 / `letter-spacing: -0.02em` for
+  proper display-size optical compensation.
+- `.codex-section-title` and `.codex-meta` adopt Plex Condensed with
+  `text-transform: uppercase` and 0.15em / 0.04em tracking respectively —
+  the visual hierarchy now matches the conceptual hierarchy without
+  shouting.
+- `.codex-synopsis` becomes Inter at `line-height: 1.6` for comfortable
+  long-form reading inside `Adw.Clamp(maximum_size=600)`.
+- `.cover-title` (grid hover label) is Plex Condensed Medium at 11px with
+  positive tracking — readable at small sizes against the gradient scrim.
+- `.cover-placeholder-title` upgrades to Fraunces 16px so the placeholder
+  card reads as an editorial fallback, not a debug rectangle.
+
+### Structural Improvements
+
+**`hermitage/typography.py` (new module).** Single-purpose: enumerate the
+bundled `.ttf` files and register them via `add_font_file()`. Idempotent,
+catches and logs registration failures per file, gracefully short-circuits
+on Pango installations too old to support runtime registration (callers fall
+back to the CSS family chain).
+
+**Registration runs from `__main__.main()`** before `hermitage.app` is
+imported, so the font map is populated before any `Gtk.Widget` queries
+Pango for a face.
+
+**`pyproject.toml`** version bumps to 0.9.0 and adds `fonts/*.ttf`,
+`fonts/*.txt`, and `fonts/README.md` to `[tool.setuptools.package-data]`
+so wheel installs ship the fonts.
+
+---
+
 ## v0.9.0 (2026-05-01) — Phase 7 Complete
 
 ---

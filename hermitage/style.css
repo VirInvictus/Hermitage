@@ -1,5 +1,24 @@
 /* Hermitage — application stylesheet */
 
+/* ===========================================================================
+ * Typography
+ *
+ *   Display  →  Fraunces           (Codex hero, cover hover, placeholder)
+ *   Body     →  Inter Variable     (synopsis, metadata, UI chrome)
+ *   Label    →  IBM Plex Sans
+ *               Condensed          (tag pills, section labels, genre pills)
+ *
+ * All three families are bundled in `hermitage/fonts/` and registered with
+ * Pango at startup (see `hermitage/typography.py`). Fallbacks below cover the
+ * case where registration fails on an unusually old Pango.
+ * =========================================================================== */
+
+window,
+.background {
+    font-family: "Inter Variable", "Inter", "Cantarell", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";  /* single-story g, open digits */
+}
+
 /* ---- Sanctuary (Grid View) ---- */
 
 .cover-frame {
@@ -26,9 +45,11 @@
         alpha(black, 0.72),
         alpha(black, 0.0));
     color: white;
-    font-weight: bold;
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
+    font-weight: 600;
     font-size: 11px;
-    padding: 24px 6px 6px 6px;
+    letter-spacing: 0.04em;
+    padding: 28px 8px 8px 8px;
     border-radius: 0 0 6px 6px;
     opacity: 0;
     transition: opacity 200ms ease-in-out;
@@ -55,15 +76,19 @@ gridview > child {
 
 .cover-placeholder-title {
     color: white;
+    font-family: "Fraunces", "Source Serif 4", "Charter", serif;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 16px;
+    letter-spacing: -0.01em;
     text-shadow: 0 1px 3px alpha(black, 0.6);
 }
 
 .cover-placeholder-author {
     color: alpha(white, 0.78);
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-weight: 500;
     font-size: 11px;
+    letter-spacing: 0.05em;
     text-shadow: 0 1px 3px alpha(black, 0.6);
 }
 
@@ -80,36 +105,45 @@ gridview > child {
 }
 
 .codex-title {
-    font-size: 22px;
-    font-weight: 800;
+    font-family: "Fraunces", "Source Serif 4", "Charter", serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: white;
     text-shadow: 0 2px 4px alpha(black, 0.7);
 }
 
 .codex-author {
+    font-family: "Inter Variable", "Inter", sans-serif;
     font-size: 15px;
     font-weight: 500;
-    color: alpha(white, 0.85);
+    letter-spacing: -0.005em;
+    color: alpha(white, 0.88);
     text-shadow: 0 1px 3px alpha(black, 0.5);
 }
 
 .codex-series {
+    font-family: "Fraunces", "Source Serif 4", serif;
     font-size: 13px;
     font-style: italic;
-    color: alpha(white, 0.7);
+    font-weight: 500;
+    color: alpha(white, 0.72);
     text-shadow: 0 1px 3px alpha(black, 0.5);
 }
 
 .codex-rating {
     font-size: 22px;
     color: @accent_color;
+    letter-spacing: 0.08em;
 }
 
 .codex-section-title {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     color: alpha(@window_fg_color, 0.55);
-    letter-spacing: 1.5px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
 }
 
 .codex-tags flowboxchild {
@@ -121,22 +155,34 @@ gridview > child {
     color: @accent_color;
     border-radius: 99px;
     padding: 4px 14px;
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: 0.04em;
 }
 
 .codex-synopsis {
+    font-family: "Inter Variable", "Inter", sans-serif;
     font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.003em;
+    color: alpha(@window_fg_color, 0.92);
 }
 
 .codex-meta {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-size: 12px;
-    color: alpha(@window_fg_color, 0.5);
+    color: alpha(@window_fg_color, 0.55);
     font-weight: 500;
+    letter-spacing: 0.04em;
 }
 
 .codex-read-btn {
+    font-family: "Inter Variable", "Inter", sans-serif;
     font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
     padding: 8px 28px;
 }
 
@@ -180,8 +226,10 @@ gridview > child {
     color: @accent_color;
     border-radius: 99px;
     padding: 6px 16px;
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: 0.03em;
     border: none;
     box-shadow: none;
 }
@@ -191,26 +239,34 @@ gridview > child {
 }
 
 .genre-pill-count {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     color: alpha(@accent_color, 0.6);
 }
 
 .genre-count {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
     font-size: 13px;
     font-weight: 600;
+    letter-spacing: 0.04em;
 }
 
 .genre-direct {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
     font-size: 13px;
     color: @accent_color;
     font-weight: 500;
+    letter-spacing: 0.03em;
 }
 
 .genre-subsection {
-    font-size: 13px;
-    font-weight: 700;
-    color: alpha(@window_fg_color, 0.7);
+    font-family: "Fraunces", "Source Serif 4", serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: alpha(@window_fg_color, 0.85);
 }
 
 .genre-subsection-btn {

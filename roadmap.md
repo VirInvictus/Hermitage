@@ -63,7 +63,7 @@
 - [ ] **Codex integration:** Show "Last read: 3 days ago" or similar in the Codex metadata section when a book has history.
 
 ## Phase 9: Polish & Visual Refinement
-- [ ] **Typography pass:** Establish a proper type system — distinct, high-quality fonts for the three roles in the UI. Display face for the Codex hero title and grid hover label, humanist body face for synopses and Codex metadata, and a tighter geometric/condensed face (or carefully tuned small-caps) for tag pills, section labels, and genre-browser pills. Tune size scale, weights, leading, kerning, and letter-spacing for each context. Audit against Adwaita defaults across the grid, Codex, GenreBrowser, sort menu, and preferences. The result should look obviously curated — not the GNOME default sans.
+- [x] **Typography pass:** Bundled type system — Fraunces (display), Inter Variable (body), IBM Plex Sans Condensed (labels/pills). Fonts ship in `hermitage/fonts/` and register at startup via `Pango.FontMap.add_font_file()`; size, weight, tracking, and feature-settings tuned across every styled class. See v0.9.1 patchnotes.
 - [ ] **About dialog:** `Adw.AboutDialog` with version, description, license (GPL-3.0), author, and links (source repo, Ko-fi).
 - [ ] **Animations:** Smooth transitions for codex open/close, search bar slide, VL sidebar toggle. Review existing transitions for consistency and timing.
 - [ ] **Grid scroll position memory:** Remember scroll position when returning from a filtered view or after closing the codex. Don't jump back to the top.
