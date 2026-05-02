@@ -64,12 +64,12 @@
 
 ## Phase 9: Polish & Visual Refinement
 - [x] **Typography pass:** Bundled type system — Fraunces (display), Inter Variable (body), IBM Plex Sans Condensed (labels/pills). Fonts ship in `hermitage/fonts/` and register at startup via `Pango.FontMap.add_font_file()`; size, weight, tracking, and feature-settings tuned across every styled class. See v0.9.1 patchnotes.
-- [ ] **About dialog:** `Adw.AboutDialog` with version, description, license (GPL-3.0), author, and links (source repo, Ko-fi).
-- [ ] **Animations:** Smooth transitions for codex open/close, search bar slide, VL sidebar toggle. Review existing transitions for consistency and timing.
-- [ ] **Grid scroll position memory:** Remember scroll position when returning from a filtered view or after closing the codex. Don't jump back to the top.
-- [ ] **Tooltip refinements:** Hover tooltips on cover cells showing full title, author, and format list for long titles that get ellipsized.
+- [x] **About dialog:** `Adw.AboutDialog` with version, description, license (GPL-3.0), author, and links (source repo, Ko-fi).
+- [x] **Animations:** Smooth transitions for codex open/close, search bar slide, VL sidebar toggle. Review existing transitions for consistency and timing.
+- [x] **Grid scroll position memory:** Remember scroll position when returning from a filtered view or after closing the codex. Don't jump back to the top.
+- [x] **Tooltip refinements:** Hover tooltips on cover cells showing full title, author, and format list for long titles that get ellipsized.
 - [ ] **High-DPI audit:** Verify thumbnail resolution, blur quality, and CSS shadows render sharply on 2x and 3x displays. Adjust `set_size_request` values if needed.
-- [ ] **Accessibility:** Ensure keyboard navigation works end-to-end (grid focus, codex navigation, search, VL sidebar). Screen reader labels on interactive elements.
+- [x] **Accessibility:** Ensure keyboard navigation works end-to-end (grid focus, codex navigation, search, VL sidebar). Screen reader labels on interactive elements.
 
 ## Phase 10: Packaging & 1.0 Release
 - [ ] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme.

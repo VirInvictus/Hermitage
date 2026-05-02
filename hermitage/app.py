@@ -215,6 +215,19 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
 
     label.set_text(book.title)
 
+    # Hover tooltip — title + authors + formats. Useful when the hover-label
+    # ellipsises and for users on touchpads who can't trigger :hover easily.
+    tip_lines = [book.title]
+    if book.authors:
+        tip_lines.append("by " + ", ".join(book.authors))
+    if book.series:
+        idx = book.series_index
+        idx_s = str(int(idx)) if idx == int(idx) else f"{idx:g}"
+        tip_lines.append(f"{book.series} #{idx_s}")
+    if book.formats:
+        tip_lines.append("Formats: " + ", ".join(book.formats))
+    frame.set_tooltip_text("\n".join(tip_lines))
+
     # Read indicator — set per-bind (cells are recycled)
     from hermitage.history import is_opened
     frame._read_badge.set_visible(is_opened(book.id))
@@ -360,6 +373,10 @@ class HermitageApp(Adw.Application):
         prefs_action.connect("activate", self._on_preferences)
         self.add_action(prefs_action)
 
+        about_action = Gio.SimpleAction(name="about")
+        about_action.connect("activate", self._on_about)
+        self.add_action(about_action)
+
         # Sort field action (stateful string)
         from hermitage.config import get as cfg_get
         sort_field_action = Gio.SimpleAction.new_stateful(
@@ -414,6 +431,34 @@ class HermitageApp(Adw.Application):
 
         prefs = PreferencesWindow(win, on_settings_changed=_on_settings_changed)
         prefs.present()
+
+    def _on_about(self, action, param):
+        win = self.props.active_window
+        if not win:
+            return
+
+        from importlib.metadata import PackageNotFoundError, version
+        try:
+            ver = version("hermitage")
+        except PackageNotFoundError:
+            ver = "0.0.0+dev"
+
+        about = Adw.AboutDialog(
+            application_name="Hermitage",
+            application_icon=APP_ID,
+            developer_name="Brandon LaRocque",
+            version=ver,
+            comments=(
+                "A visually immersive, local-first media sanctuary "
+                "for Calibre libraries."
+            ),
+            website="https://github.com/VirInvictus/Hermitage",
+            issue_url="https://github.com/VirInvictus/Hermitage/issues",
+            license_type=Gtk.License.GPL_3_0,
+            copyright="© 2026 Brandon LaRocque",
+            developers=["Brandon LaRocque"],
+        )
+        about.present(win)
 
     def do_activate(self):
         win = self.props.active_window
@@ -547,6 +592,7 @@ class HermitageApp(Adw.Application):
         menu_btn.set_tooltip_text("Main menu")
         menu = Gio.Menu()
         menu.append("Preferences", "app.preferences")
+        menu.append("About Hermitage", "app.about")
         menu_btn.set_menu_model(menu)
         header.pack_end(menu_btn)
 
@@ -674,6 +720,8 @@ class HermitageApp(Adw.Application):
         """Assemble the nested split-view layout."""
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_child(grid)
+        win._scrolled = scrolled
+        win._saved_scroll = None  # vadjustment value to restore on filter clear
 
         # Genre browser (stacked behind the grid)
         win._genre_browser = GenreBrowser()
@@ -688,7 +736,7 @@ class HermitageApp(Adw.Application):
 
         stack = Gtk.Stack()
         stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        stack.set_transition_duration(200)
+        stack.set_transition_duration(240)
         stack.add_named(scrolled, "grid")
         stack.add_named(win._genre_browser, "genres")
         stack.add_named(win._no_results, "no-results")
@@ -808,6 +856,7 @@ class HermitageApp(Adw.Application):
 
         win._search_entry.set_text("")
         win._search_btn.set_active(False)
+        HermitageApp._save_scroll_if_unfiltered(win)
 
         recent_ids = history.recently_read(50)
         if not recent_ids:
@@ -859,6 +908,7 @@ class HermitageApp(Adw.Application):
             HermitageApp._resort_grid(win)
             if not win._genre_btn.get_active():
                 win._view_stack.set_visible_child_name("grid")
+            HermitageApp._restore_scroll(win)
             return
 
         def _apply_filter():
@@ -871,8 +921,10 @@ class HermitageApp(Adw.Application):
                 HermitageApp._resort_grid(win)
                 if not win._genre_btn.get_active():
                     win._view_stack.set_visible_child_name("grid")
+                HermitageApp._restore_scroll(win)
                 return GLib.SOURCE_REMOVE
 
+            HermitageApp._save_scroll_if_unfiltered(win)
             matched = filter_books(text, win._books, win._vl_resolver)
             matching_ids = {b.id for b in matched}
             win._filter.set_filter_func(
@@ -907,6 +959,33 @@ class HermitageApp(Adw.Application):
             return GLib.SOURCE_REMOVE
 
         win._search_debounce_id = GLib.timeout_add(400, _apply_filter)
+
+    @staticmethod
+    def _save_scroll_if_unfiltered(win: Adw.ApplicationWindow):
+        """Capture the grid's scroll position on the first filter application."""
+        if win._saved_scroll is not None:
+            return
+        scrolled = getattr(win, "_scrolled", None)
+        if scrolled is None:
+            return
+        win._saved_scroll = scrolled.get_vadjustment().get_value()
+
+    @staticmethod
+    def _restore_scroll(win: Adw.ApplicationWindow):
+        """Restore the grid's scroll position after a filter clear."""
+        scrolled = getattr(win, "_scrolled", None)
+        if scrolled is None or win._saved_scroll is None:
+            return
+        target = win._saved_scroll
+        win._saved_scroll = None
+
+        # The GridView needs a layout pass before the vadjustment knows its
+        # new upper bound — schedule the set on the next idle tick.
+        def _do():
+            scrolled.get_vadjustment().set_value(target)
+            return GLib.SOURCE_REMOVE
+
+        GLib.idle_add(_do)
 
     @staticmethod
     def _resort_grid(win: Adw.ApplicationWindow):

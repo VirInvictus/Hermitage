@@ -1,5 +1,56 @@
 # Hermitage — Patch Notes
 
+## v0.10.1 (2026-05-01) — Phase 9 Polish (almost)
+
+---
+
+### New Features
+
+**About dialog.** `Adw.AboutDialog` reachable from the hamburger menu's new
+"About Hermitage" item. Pulls the running version via
+`importlib.metadata.version("hermitage")` so it's always in sync with
+`pyproject.toml`. Lists GPL-3.0, the GitHub URL, and an issue tracker link.
+
+**Cover-cell tooltips.** Each grid cell now gets a multi-line tooltip on
+hover with title, "by …" author list, series + index when present, and the
+format list — useful when the hover-label ellipsises and for users on
+touchpads who can't reliably trigger `:hover`. Also doubles as the
+accessible name for AT-SPI screen readers.
+
+**Grid scroll position memory.** Applying a filter (typing in the search,
+clicking a Calibre virtual library, switching to Recently Read) now
+captures the current `Gtk.ScrolledWindow` vadjustment value into
+`win._saved_scroll`. Clearing back to All Books restores it on the next
+idle tick (after the GridView re-lays out the unfiltered store). Subsequent
+filters keep the same saved value until a clear consumes it.
+
+### Enhancements
+
+**Animations consistency pass.** The view-stack crossfade between grid /
+genre browser / no-results bumped from 200 ms to 240 ms for slightly more
+ceremony when switching modes. Cover-cell hover transitions converted from
+symmetric `ease-in-out` to a Cocoa-style `cubic-bezier(0.32, 0.72, 0, 1)`
+spring — feels closer to a flick than a fade. Hover lift extended from
+4 px / 12 px shadow to 6 px / 16 px so the lifted card reads more
+clearly against the gradient placeholder backgrounds.
+
+**Accessibility tooltips.** Added explicit tooltips to icon-only and
+ambiguous controls: the Codex dismiss button (with the Esc shortcut hint),
+the Read button, the author / series link buttons, and every dynamically-
+created tag pill. GTK 4 uses `tooltip-text` as the default accessible name
+when no explicit label is set, so this doubles as the screen-reader pass.
+
+### Structural Improvements
+
+**`HermitageApp._save_scroll_if_unfiltered` / `_restore_scroll`.** Two
+small static helpers keep the scroll-memory logic in one place; both filter
+entry points (debounced search apply, Recently Read activation) call them
+and the clear paths trigger the restore. The restore is dispatched via
+`GLib.idle_add` so the vadjustment has a valid upper bound by the time we
+write to it.
+
+---
+
 ## v0.10.0 (2026-05-01) — Phase 8: Reading History
 
 ---
