@@ -1,5 +1,32 @@
 # Hermitage — Patch Notes
 
+## v0.13.2 (2026-05-01) — Packaging Metadata Scaffold
+
+---
+
+### Structural Improvements
+
+**`data/dev.hermitage.Hermitage.desktop`.** Standard freedesktop entry —
+Name, GenericName, Comment, Exec, Icon, Terminal=false, StartupWMClass,
+and a Categories=GTK;Office;Viewer; chain. Validates clean under
+`desktop-file-validate`. Ready to be installed to
+`/usr/share/applications/` (or shipped via Flatpak).
+
+**`data/dev.hermitage.Hermitage.metainfo.xml`.** AppStream metainfo
+component for software-center listings (GNOME Software, KDE Discover,
+Flathub). Includes summary, full feature description, GPL-3.0 license,
+GitHub URLs (homepage, bugtracker, vcs), `oars-1.1` content rating,
+control supports (pointing/keyboard/touch), `offline-only` internet
+recommendation, brand colours for light/dark, and a release-notes
+history back to v0.9.0. Validates clean under `appstreamcli validate`
+(one pedantic note about screenshots — TODO once we have the icon and
+a release build to capture against).
+
+The icon (`dev.hermitage.Hermitage.svg`) remains the only outstanding
+Phase 10 artifact before screenshots and a Flatpak manifest can land.
+
+---
+
 ## v0.13.1 (2026-05-01) — Library Export
 
 ---

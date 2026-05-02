@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Hermitage
+GenericName=Calibre Library Browser
+Comment=A visually immersive, local-first media sanctuary for Calibre libraries
+Exec=hermitage
+Icon=dev.hermitage.Hermitage
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=dev.hermitage.Hermitage
+Categories=GTK;Office;Viewer;
+Keywords=calibre;ebook;library;reader;books;
+MimeType=application/x-calibre-database;

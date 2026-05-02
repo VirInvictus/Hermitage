@@ -73,8 +73,8 @@
 
 ## Phase 10: Packaging & 1.0 Release
 - [ ] **Application icon:** Design and ship a scalable SVG icon following the GNOME icon guidelines. Install to the hicolor icon theme.
-- [ ] **Desktop entry:** `dev.hermitage.Hermitage.desktop` file with proper categories, icon reference, and `StartupWMClass`.
-- [ ] **AppStream metadata:** `dev.hermitage.Hermitage.metainfo.xml` with screenshots, release notes, and OARS content rating for software center listings.
+- [x] **Desktop entry:** `dev.hermitage.Hermitage.desktop` file with proper categories, icon reference, and `StartupWMClass`. (Validated by `desktop-file-validate`.)
+- [x] **AppStream metadata:** `dev.hermitage.Hermitage.metainfo.xml` with release notes and OARS content rating for software center listings. Screenshots TODO once the icon and a release build are ready. (Validated by `appstreamcli`.)
 - [ ] **Flatpak manifest:** `dev.hermitage.Hermitage.yml` targeting the GNOME 50 runtime. Bundle all Python dependencies. Test on a clean system.
 - [ ] **Final testing:** Full regression pass on a 4,000+ book library. Verify every feature end-to-end: first-run wizard, search, VL sidebar, codex, read button, sort options, reading history, placeholder covers, breakpoints.
 - [ ] **Version 1.0.0:** Bump version, write release patchnotes, tag the release, publish Flatpak and PyPI package.

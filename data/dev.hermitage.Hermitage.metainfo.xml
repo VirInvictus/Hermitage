@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.hermitage.Hermitage</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Hermitage</name>
+  <summary>Visually immersive Calibre library browser</summary>
+
+  <description>
+    <p>
+      Hermitage is a single-user, local-first media sanctuary for your
+      Calibre library. It opens your existing Calibre database read-only
+      and renders the library as an edge-to-edge cover-art grid with a
+      sliding detail pane, a tag-tree genre browser, a series browser,
+      and an at-a-glance Library Insights window.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Cover-art grid with per-cover dynamic colour glow</li>
+      <li>Codex detail view with hero-blur header, ISBN/Goodreads/etc. links</li>
+      <li>Genre browser using Calibre's dot-separated tag hierarchy</li>
+      <li>Series browser with index-range detection</li>
+      <li>Calibre-compatible search query language with virtual library support</li>
+      <li>Local reading history (recent shelf, read indicator, last-opened line)</li>
+      <li>Library Insights — top tags/authors, format coverage, hygiene audit</li>
+      <li>Export to JSON or CSV</li>
+      <li>Bundled premium typography (Fraunces, Inter, IBM Plex Sans Condensed)</li>
+      <li>100% local — zero telemetry, zero accounts, zero network calls</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">dev.hermitage.Hermitage.desktop</launchable>
+
+  <url type="homepage">https://github.com/VirInvictus/Hermitage</url>
+  <url type="bugtracker">https://github.com/VirInvictus/Hermitage/issues</url>
+  <url type="vcs-browser">https://github.com/VirInvictus/Hermitage</url>
+
+  <developer id="dev.hermitage">
+    <name>Brandon LaRocque</name>
+  </developer>
+
+  <provides>
+    <binary>hermitage</binary>
+    <binary>hermitage-verify</binary>
+  </provides>
+
+  <categories>
+    <category>Office</category>
+    <category>Viewer</category>
+    <category>Literature</category>
+  </categories>
+
+  <keywords>
+    <keyword>calibre</keyword>
+    <keyword>ebook</keyword>
+    <keyword>library</keyword>
+    <keyword>reader</keyword>
+    <keyword>books</keyword>
+  </keywords>
+
+  <recommends>
+    <display_length compare="ge">768</display_length>
+    <internet>offline-only</internet>
+  </recommends>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#fbf3e6</color>
+    <color type="primary" scheme_preference="dark">#241c14</color>
+  </branding>
+
+  <!-- TODO: add <screenshots> section once the icon and a release build
+       are ready to capture against. -->
+
+  <releases>
+    <release version="0.13.1" date="2026-05-01">
+      <description>
+        <p>Library export to JSON or CSV; toast notification system.</p>
+      </description>
+    </release>
+    <release version="0.13.0" date="2026-05-01">
+      <description>
+        <p>Library Insights window — at-a-glance counters, top tags/authors,
+           format coverage, library hygiene audit.</p>
+      </description>
+    </release>
+    <release version="0.12.0" date="2026-05-01">
+      <description>
+        <p>Series browser sibling to the genre browser.</p>
+      </description>
+    </release>
+    <release version="0.11.0" date="2026-05-01">
+      <description>
+        <p>Identifier links in the Codex (Open Library, Goodreads, Google
+           Books, Amazon, StoryGraph, Hardcover, FictionDB, DOI, …) plus
+           tag-hierarchy search parity with cquarry.</p>
+      </description>
+    </release>
+    <release version="0.10.0" date="2026-05-01">
+      <description>
+        <p>Reading history — local SQLite event log, Codex "Last read" line,
+           grid read indicator, "Recently Read" virtual library row.</p>
+      </description>
+    </release>
+    <release version="0.9.0" date="2026-05-01">
+      <description>
+        <p>Phase 7 complete: empty states, error resilience, and the
+           database-lock snapshot fallback.</p>
+      </description>
+    </release>
+  </releases>
+</component>
