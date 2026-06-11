@@ -90,3 +90,13 @@ Port as much of `../CalibreQuarry` (the `cquarry` CLI) into Hermitage as makes s
 - [x] **Catalog / export:** evaluate `cquarry/modes/{catalog,export}.py` for an in-app export (OPDS-style catalog, JSON/CSV dump). Hermitage stays read-only against Calibre's DB; exports go to the user's chosen path.
 - [x] **Series view:** port `db.get_all_series()` (ordered series with index runs and titles) for a dedicated series browser sibling to the genre browser.
 - [x] **Search-expression parity:** cross-check our `hermitage/search.py` parser against cquarry's `_parse_or` / `_match_tags` / `_match_authors` semantics (especially `tags:Foo` matching `Foo.*` as a hierarchy prefix, which Hermitage does not currently do). Align behaviour so the same query returns the same set in both tools.
+
+## Phase 12: Test Suite & Lint Hygiene (workspace sweep, 2026-06-09)
+
+The sweep found no behavioural bugs (everything compiles cleanly), but this is the weakest portfolio repo on hygiene: no tests and the most import lint in the portfolio set.
+
+- [ ] **Build a test suite.** This is the only portfolio Python project with zero tests, against the house rule that tests are not optional. The non-GTK layers (config, database reads, search/`parse_query`) are all unit-testable without a display; the CalibreQuarry test style (unittest, temp sqlite fixtures) would transplant directly. Biggest gap in the repo.
+- [ ] **Shadowed module-level imports (4x F811):** `app.py` imports `cfg_get` and `os` at module level, never uses them there, then re-imports them locally at lines 390, 532, 768, 1098. Drop the unused module-level imports (or the local re-imports) so there is one obvious binding.
+- [ ] **11x F401 unused imports** across `app.py`, `insights.py`, `preferences.py`, `verify.py`, `wizard.py`, all auto-fixable with `ruff check --fix`; plus one E741 ambiguous variable name.
+- [ ] **E402 noise control:** the 24 E402s are the standard `gi.require_version` ordering pattern and are fine; add a per-file ignore so real E402s stay visible.
+- [ ] Commit the pending deletion of `claude.run` sitting in the working tree.
