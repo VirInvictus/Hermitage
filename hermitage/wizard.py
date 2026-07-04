@@ -9,7 +9,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gtk, Pango
 
 
 class SetupWizard(Adw.Window):
@@ -31,7 +31,8 @@ class SetupWizard(Adw.Window):
         toolbar.add_top_bar(Adw.HeaderBar())
 
         content = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL, spacing=16,
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16,
         )
         content.set_valign(Gtk.Align.CENTER)
         content.set_halign(Gtk.Align.CENTER)
@@ -65,13 +66,14 @@ class SetupWizard(Adw.Window):
         self._path_label = Gtk.Label(label="No folder selected")
         self._path_label.add_css_class("monospace")
         self._path_label.add_css_class("dim-label")
-        self._path_label.set_ellipsize(2)  # Pango.EllipsizeMode.MIDDLE
+        self._path_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         self._path_label.set_max_width_chars(50)
         content.append(self._path_label)
 
         # Buttons
         btn_box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=12,
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=12,
         )
         btn_box.set_halign(Gtk.Align.CENTER)
 

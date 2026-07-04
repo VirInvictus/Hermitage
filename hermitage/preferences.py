@@ -9,9 +9,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gtk
 
-from hermitage.config import get, save_config, load_config, set_value
+from hermitage.config import get, set_value
 
 # Sort field options matching the keys used in app.py sorting
 SORT_FIELDS = [

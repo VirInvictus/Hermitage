@@ -33,7 +33,8 @@ def _warn_once(cover: Path, reason: str) -> None:
         _warned_paths.add(cover)
     print(f"hermitage: skipping cover {cover}: {reason}", file=sys.stderr)
 
-THUMB_WIDTH = 360   # 2x grid cell for HiDPI
+
+THUMB_WIDTH = 360  # 2x grid cell for HiDPI
 THUMB_HEIGHT = 540
 THUMB_QUALITY = 85
 CACHE_DIR = Path.home() / ".cache" / "hermitage" / "thumbs"
@@ -44,16 +45,25 @@ _TEXTURE_CACHE_MAX = 512
 _texture_cache: OrderedDict[Path, Gdk.Texture] = OrderedDict()
 _texture_lock = threading.Lock()
 
+# Interactive requests (visible cells, Codex hero) get their own pool so they
+# never queue behind the few thousand fire-and-forget warm_cache() jobs — on a
+# cold cache that starvation kept the first screen of covers blank for minutes.
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="hermitage-thumb")
+_warm_executor = ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="hermitage-thumb-warm"
+)
 
-# Tracks in-flight async requests to avoid duplicate work
-_pending: set[Path] = set()
+# In-flight async requests: cover path -> callbacks awaiting it. Duplicate
+# requests coalesce into one decode, but every caller still gets its callback
+# (the grid cell and the Codex hero can race for the same cover).
+_pending: dict[Path, list] = {}
 _pending_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
 # Disk cache
 # ---------------------------------------------------------------------------
+
 
 def _thumb_path(cover: Path) -> Path:
     """Deterministic cache path based on source path + mtime."""
@@ -74,11 +84,10 @@ def _generate_thumbnail(cover: Path) -> Path | None:
     if thumb.is_file():
         return thumb
 
-    if cover.stat().st_size == 0:
-        _warn_once(cover, "zero-byte file")
-        return None
-
     try:
+        if cover.stat().st_size == 0:
+            _warn_once(cover, "zero-byte file")
+            return None
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         with Image.open(cover) as img:
             img.thumbnail((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
@@ -103,6 +112,7 @@ def _load_texture(thumb: Path) -> Gdk.Texture | None:
 # In-memory texture cache
 # ---------------------------------------------------------------------------
 
+
 def get_cached_texture(cover: Path) -> Gdk.Texture | None:
     """Return a cached texture if available. O(1), no I/O, main-thread safe."""
     with _texture_lock:
@@ -125,16 +135,20 @@ def _store_texture(cover: Path, texture: Gdk.Texture):
 # Async pipeline: generate thumbnail -> decode texture -> deliver to main
 # ---------------------------------------------------------------------------
 
+
 def request_texture(cover: Path, callback):
     """Request a Gdk.Texture for *cover* asynchronously.
 
     *callback(cover, texture_or_None)* is invoked on the **main thread**
-    via GLib.idle_add.  Duplicate requests for the same cover are coalesced.
+    via GLib.idle_add.  Duplicate requests for the same cover coalesce into a
+    single decode, but every registered callback is delivered.
     """
     with _pending_lock:
-        if cover in _pending:
+        waiters = _pending.get(cover)
+        if waiters is not None:
+            waiters.append(callback)
             return
-        _pending.add(cover)
+        _pending[cover] = [callback]
 
     def _work():
         try:
@@ -146,11 +160,13 @@ def request_texture(cover: Path, callback):
             texture = None
         finally:
             with _pending_lock:
-                _pending.discard(cover)
+                callbacks = _pending.pop(cover, [])
 
         def _deliver():
-            callback(cover, texture)
+            for cb in callbacks:
+                cb(cover, texture)
             return GLib.SOURCE_REMOVE
+
         GLib.idle_add(_deliver)
 
     _executor.submit(_work)
@@ -172,14 +188,17 @@ def warm_cache(covers: list[Path], progress=None):
     counter_lock = threading.Lock()
 
     def _track(cover: Path):
-        _generate_thumbnail(cover)
-        if progress is None:
-            return
-        with counter_lock:
-            counter["done"] += 1
-            done = counter["done"]
-        if done == total or done % 32 == 0:
-            GLib.idle_add(progress, done, total)
+        # The counter must advance even if generation throws, or the
+        # "indexing covers (N%)" subtitle sticks below 100% forever.
+        try:
+            _generate_thumbnail(cover)
+        finally:
+            if progress is not None:
+                with counter_lock:
+                    counter["done"] += 1
+                    done = counter["done"]
+                if done == total or done % 32 == 0:
+                    GLib.idle_add(progress, done, total)
 
     for cover in covers:
-        _executor.submit(_track, cover)
+        _warm_executor.submit(_track, cover)

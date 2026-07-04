@@ -52,15 +52,18 @@ SELECT
     b.series_index,
     b.pubdate,
     b.timestamp,
-    GROUP_CONCAT(DISTINCT a.name)       AS authors,
+    (SELECT GROUP_CONCAT(name)
+     FROM (SELECT a.name AS name
+           FROM books_authors_link bal
+           JOIN authors a ON a.id = bal.author
+           WHERE bal.book = b.id
+           ORDER BY bal.id))           AS authors,
     s.name                              AS series,
     r.rating                            AS rating,
     c.text                              AS comment,
     GROUP_CONCAT(DISTINCT t.name)       AS tags,
     GROUP_CONCAT(DISTINCT d.format)     AS formats
 FROM books b
-    LEFT JOIN books_authors_link    bal ON b.id = bal.book
-    LEFT JOIN authors               a   ON bal.author = a.id
     LEFT JOIN books_series_link     bsl ON b.id = bsl.book
     LEFT JOIN series                s   ON bsl.series = s.id
     LEFT JOIN books_ratings_link    brl ON b.id = brl.book
@@ -100,6 +103,7 @@ def _resolve_library_path() -> Path:
 
     # 2. Config file
     from hermitage.config import get as cfg_get
+
     lib_path = cfg_get("library_path", "")
     if lib_path:
         p = Path(lib_path).expanduser().resolve()
@@ -202,6 +206,7 @@ def _connect() -> sqlite3.Connection:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def load_library() -> list[Book]:
     """Load every book from the Calibre database (read-only)."""
     global _library_root_cache
@@ -210,9 +215,7 @@ def load_library() -> list[Book]:
     try:
         rows = conn.execute(_BOOKS_QUERY).fetchall()
         # Bulk-load identifiers in a single query — avoids N+1 on the hot path.
-        ident_rows = conn.execute(
-            "SELECT book, type, val FROM identifiers"
-        ).fetchall()
+        ident_rows = conn.execute("SELECT book, type, val FROM identifiers").fetchall()
     finally:
         conn.close()
 
@@ -222,23 +225,29 @@ def load_library() -> list[Book]:
 
     books: list[Book] = []
     for r in rows:
-        books.append(Book(
-            id=r["id"],
-            title=r["title"],
-            sort=r["sort"],
-            authors=r["authors"].split(",") if r["authors"] else [],
-            path=r["path"],
-            has_cover=bool(r["has_cover"]),
-            series=r["series"],
-            series_index=r["series_index"],
-            rating=r["rating"],
-            tags=r["tags"].split(",") if r["tags"] else [],
-            comment=r["comment"],
-            formats=r["formats"].split(",") if r["formats"] else [],
-            pubdate=r["pubdate"],
-            timestamp=r["timestamp"],
-            identifiers=by_book.get(r["id"], {}),
-        ))
+        books.append(
+            Book(
+                id=r["id"],
+                title=r["title"],
+                sort=r["sort"],
+                # Calibre stores commas inside author names as '|'
+                # (e.g. "Le Guin| Ursula K."); restore them for display.
+                authors=[a.strip().replace("|", ",") for a in r["authors"].split(",")]
+                if r["authors"]
+                else [],
+                path=r["path"],
+                has_cover=bool(r["has_cover"]),
+                series=r["series"],
+                series_index=r["series_index"],
+                rating=r["rating"],
+                tags=r["tags"].split(",") if r["tags"] else [],
+                comment=r["comment"],
+                formats=r["formats"].split(",") if r["formats"] else [],
+                pubdate=r["pubdate"],
+                timestamp=r["timestamp"],
+                identifiers=by_book.get(r["id"], {}),
+            )
+        )
     return books
 
 
@@ -256,10 +265,12 @@ def load_virtual_libraries() -> dict[str, str]:
 
     try:
         conn = _connect()
-        row = conn.execute(
-            "SELECT val FROM preferences WHERE key='virtual_libraries'",
-        ).fetchone()
-        conn.close()
+        try:
+            row = conn.execute(
+                "SELECT val FROM preferences WHERE key='virtual_libraries'",
+            ).fetchone()
+        finally:
+            conn.close()
         if row:
             return json.loads(row[0])
     except Exception:

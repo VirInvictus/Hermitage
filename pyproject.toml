@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermitage"
-version = "0.15.0"
+# Single source of truth for the version is hermitage/__init__.py
+dynamic = ["version"]
 description = "A visually immersive, local-first media sanctuary for Calibre libraries."
 # Lower bound is the Python shipped in the GNOME 50 Flatpak runtime;
 # the codebase targets 3.14 idioms (slots dataclasses, deferred
@@ -24,8 +25,16 @@ dependencies = [
 hermitage = "hermitage.__main__:main"
 hermitage-verify = "hermitage.verify:main"
 
+[tool.setuptools.dynamic]
+version = { attr = "hermitage.__version__" }
+
 [tool.setuptools.packages.find]
 include = ["hermitage*"]
 
 [tool.setuptools.package-data]
 hermitage = ["*.css", "fonts/*.ttf", "fonts/*.txt", "fonts/README.md"]
+
+[tool.ruff.lint.per-file-ignores]
+# The gi.require_version() dance forces imports after module-level code in
+# every GTK-facing module; silence E402 there so real violations stay visible.
+"hermitage/*" = ["E402"]

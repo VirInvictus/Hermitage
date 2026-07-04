@@ -28,11 +28,17 @@ def _warn_once(book_id: int, cover: Path, reason: str) -> None:
         file=sys.stderr,
     )
 
+
 CACHE_DIR = Path.home() / ".cache" / "hermitage" / "colors"
 SAMPLE_SIZE = (64, 64)  # Downsample before analysis for speed
-NUM_COLORS = 5          # Top N dominant colors to extract
+NUM_COLORS = 5  # Top N dominant colors to extract
 
+# Like the thumbnailer: interactive requests get their own pool so visible
+# cells never queue behind the whole-library warm_color_cache() sweep.
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="hermitage-color")
+_warm_executor = ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="hermitage-color-warm"
+)
 _color_cache: dict[int, list[tuple[int, int, int]]] = {}
 _cache_lock = threading.Lock()
 
@@ -53,9 +59,11 @@ def _quantize_colors(cover: Path) -> list[tuple[int, int, int]]:
 
 def _sort_by_vibrancy(colors: list[tuple[int, int, int]]) -> list[tuple[int, int, int]]:
     """Sort colors by saturation * value (most vibrant first)."""
+
     def score(rgb):
         h, s, v = colorsys.rgb_to_hsv(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
         return s * v
+
     return sorted(colors, key=score, reverse=True)
 
 
@@ -123,9 +131,11 @@ def request_colors(book_id: int, cover: Path, callback):
 
     def _work():
         colors = extract_colors_sync(book_id, cover)
+
         def _deliver():
             callback(book_id, colors)
             return GLib.SOURCE_REMOVE
+
         GLib.idle_add(_deliver)
 
     _executor.submit(_work)
@@ -136,4 +146,4 @@ def warm_color_cache(books):
     for b in books:
         cover = b.cover_path
         if cover and cover.is_file():
-            _executor.submit(extract_colors_sync, b.id, cover)
+            _warm_executor.submit(extract_colors_sync, b.id, cover)

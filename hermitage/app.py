@@ -17,7 +17,7 @@ from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
 from hermitage.database import Book, load_library, load_virtual_libraries
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
-from hermitage.search import filter_books, parse_query
+from hermitage.search import filter_books
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
 
@@ -47,41 +47,53 @@ COVER_HEIGHT = 270
 COVER_RATIO = COVER_WIDTH / COVER_HEIGHT  # 0.667 (2:3)
 
 
-def _apply_color_css(overlay: Gtk.Overlay, colors: list[tuple[int, int, int]]):
-    """Apply per-cell hover glow using the book's dominant color."""
-    # Remove previous provider if any
+def _apply_color_css(
+    overlay: Gtk.Overlay, book_id: int, colors: list[tuple[int, int, int]]
+):
+    """Apply per-cell hover glow using the book's dominant color.
+
+    The CSS class is namespaced per book (like the placeholder tint):
+    display-wide providers all share one CSS cascade, so a shared class name
+    meant the last-bound cell's glow color won for every visible cell.
+    """
+    # Remove previous provider + class if any (cells are recycled)
     old = getattr(overlay, "_color_provider", None)
     if old is not None:
-        Gtk.StyleContext.remove_provider_for_display(
-            overlay.get_display(), old
-        )
+        Gtk.StyleContext.remove_provider_for_display(overlay.get_display(), old)
         overlay._color_provider = None
+    prior = getattr(overlay, "_glow_class", None)
+    if prior:
+        overlay.remove_css_class(prior)
+        overlay._glow_class = None
 
     if not colors:
         return
 
     r, g, b = colors[0]
+    cls = f"cover-glow-{book_id}"
     provider = Gtk.CssProvider()
     provider.load_from_string(
-        f".cover-cell-active:hover {{\n"
+        f".{cls}:hover {{\n"
         f"    box-shadow: 0 6px 20px rgba({r},{g},{b}, 0.55);\n"
         f"}}\n"
-        f".cover-cell-active:focus-within {{\n"
+        f".{cls}:focus-within {{\n"
         f"    box-shadow: 0 0 0 3px rgba({r},{g},{b}, 0.6);\n"
         f"}}\n"
     )
     Gtk.StyleContext.add_provider_for_display(
-        overlay.get_display(), provider,
+        overlay.get_display(),
+        provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
     )
     overlay._color_provider = provider
-    if not overlay.has_css_class("cover-cell-active"):
-        overlay.add_css_class("cover-cell-active")
+    overlay._glow_class = cls
+    overlay.add_css_class(cls)
 
 
 def _placeholder_rgb(book_id: int) -> tuple[int, int, int]:
     """Stable, mid-saturation tint for a book's placeholder cover."""
     import colorsys
+
     hue = ((book_id * 2654435761) & 0xFFFFFFFF) / 0xFFFFFFFF
     r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.42)
     return (int(r * 255), int(g * 255), int(b * 255))
@@ -92,7 +104,8 @@ def _apply_placeholder_css(placeholder: Gtk.Box, book_id: int):
     old = getattr(placeholder, "_ph_provider", None)
     if old is not None:
         Gtk.StyleContext.remove_provider_for_display(
-            placeholder.get_display(), old,
+            placeholder.get_display(),
+            old,
         )
         placeholder._ph_provider = None
 
@@ -102,11 +115,12 @@ def _apply_placeholder_css(placeholder: Gtk.Box, book_id: int):
         f".cover-placeholder-tinted-{book_id} {{\n"
         f"    background: linear-gradient(160deg,\n"
         f"        rgba({r},{g},{b}, 0.92),\n"
-        f"        rgba({max(r-40,0)},{max(g-40,0)},{max(b-40,0)}, 0.95));\n"
+        f"        rgba({max(r - 40, 0)},{max(g - 40, 0)},{max(b - 40, 0)}, 0.95));\n"
         f"}}\n"
     )
     Gtk.StyleContext.add_provider_for_display(
-        placeholder.get_display(), provider,
+        placeholder.get_display(),
+        provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
     )
     placeholder._ph_provider = provider
@@ -150,16 +164,20 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     placeholder.set_vexpand(True)
 
     ph_title = Gtk.Label(
-        xalign=0.5, wrap=True,
-        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=4,
+        xalign=0.5,
+        wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR,
+        lines=4,
     )
     ph_title.set_ellipsize(Pango.EllipsizeMode.END)
     ph_title.add_css_class("cover-placeholder-title")
     placeholder.append(ph_title)
 
     ph_author = Gtk.Label(
-        xalign=0.5, wrap=True,
-        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=2,
+        xalign=0.5,
+        wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR,
+        lines=2,
     )
     ph_author.set_ellipsize(Pango.EllipsizeMode.END)
     ph_author.add_css_class("cover-placeholder-author")
@@ -170,8 +188,10 @@ def _setup_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
 
     # Title label — shown on hover via CSS
     label = Gtk.Label(
-        xalign=0.5, wrap=True,
-        wrap_mode=Pango.WrapMode.WORD_CHAR, lines=2,
+        xalign=0.5,
+        wrap=True,
+        wrap_mode=Pango.WrapMode.WORD_CHAR,
+        lines=2,
     )
     label.set_ellipsize(Pango.EllipsizeMode.END)
     label.add_css_class("cover-title")
@@ -231,6 +251,7 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
 
     # Read indicator — set per-bind (cells are recycled)
     from hermitage.history import is_opened
+
     frame._read_badge.set_visible(is_opened(book.id))
 
     def _show_placeholder():
@@ -245,7 +266,7 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     cover = book.cover_path
     if not cover or not cover.is_file():
         _show_placeholder()
-        _apply_color_css(overlay, [])
+        _apply_color_css(overlay, book.id, [])
         return
 
     # --- Texture ---
@@ -272,16 +293,15 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     # --- Dynamic color ---
     colors = get_cached_colors(book.id)
     if colors is not None:
-        _apply_color_css(overlay, colors)
+        _apply_color_css(overlay, book.id, colors)
     else:
-        _apply_color_css(overlay, [])
-        book_id = book.id
+        _apply_color_css(overlay, book.id, [])
 
         def _on_colors_ready(bid, cols):
             current = list_item.get_item()
             if current is None or current.book.id != bid:
                 return
-            _apply_color_css(overlay, cols)
+            _apply_color_css(overlay, bid, cols)
 
         request_colors(book.id, cover, _on_colors_ready)
 
@@ -294,18 +314,20 @@ def _unbind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
     overlay = frame._overlay
     old = getattr(overlay, "_color_provider", None)
     if old is not None:
-        Gtk.StyleContext.remove_provider_for_display(
-            overlay.get_display(), old
-        )
+        Gtk.StyleContext.remove_provider_for_display(overlay.get_display(), old)
         overlay._color_provider = None
-    overlay.remove_css_class("cover-cell-active")
+    glow = getattr(overlay, "_glow_class", None)
+    if glow:
+        overlay.remove_css_class(glow)
+        overlay._glow_class = None
 
     # Drop placeholder per-book CSS provider too.
     placeholder = frame._placeholder
     ph_old = getattr(placeholder, "_ph_provider", None)
     if ph_old is not None:
         Gtk.StyleContext.remove_provider_for_display(
-            placeholder.get_display(), ph_old,
+            placeholder.get_display(),
+            ph_old,
         )
         placeholder._ph_provider = None
     prior = getattr(placeholder, "_ph_class", None)
@@ -339,7 +361,7 @@ def _sort_key(book: Book, field: str):
     if field == "title":
         return book.sort.lower()
     elif field == "author":
-        return (book.authors[0].lower() if book.authors else "")
+        return book.authors[0].lower() if book.authors else ""
     elif field == "date_added":
         return book.timestamp or ""
     elif field == "pubdate":
@@ -368,7 +390,9 @@ class HermitageApp(Adw.Application):
     """Main application object."""
 
     def __init__(self):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        super().__init__(
+            application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS
+        )
 
         prefs_action = Gio.SimpleAction(name="preferences")
         prefs_action.connect("activate", self._on_preferences)
@@ -387,7 +411,6 @@ class HermitageApp(Adw.Application):
         self.add_action(export_action)
 
         # Sort field action (stateful string)
-        from hermitage.config import get as cfg_get
         sort_field_action = Gio.SimpleAction.new_stateful(
             "sort-field",
             GLib.VariantType.new("s"),
@@ -405,11 +428,15 @@ class HermitageApp(Adw.Application):
         sort_asc_action.connect("activate", self._on_sort_ascending_action)
         self.add_action(sort_asc_action)
 
+        # Keyboard accelerators for app actions (window-level shortcuts like
+        # Ctrl+F / Ctrl+L live in _setup_shortcuts).
+        self.set_accels_for_action("app.preferences", ["<Control>comma"])
+        self.set_accels_for_action("app.insights", ["<Control>i"])
+
     def _on_sort_field_action(self, action, param):
         field = param.get_string()
         action.set_state(param)
-        from hermitage.config import set_value
-        set_value("sort_field", field)
+        cfg_set("sort_field", field)
         win = self.props.active_window
         if win and hasattr(win, "_store"):
             self._resort_grid(win)
@@ -418,13 +445,16 @@ class HermitageApp(Adw.Application):
         current = action.get_state().get_boolean()
         new_val = not current
         action.set_state(GLib.Variant("b", new_val))
-        from hermitage.config import set_value
-        set_value("sort_ascending", new_val)
+        cfg_set("sort_ascending", new_val)
         win = self.props.active_window
         if win and hasattr(win, "_store"):
             self._resort_grid(win)
             # Update sort icon direction
-            icon = "view-sort-ascending-symbolic" if new_val else "view-sort-descending-symbolic"
+            icon = (
+                "view-sort-ascending-symbolic"
+                if new_val
+                else "view-sort-descending-symbolic"
+            )
             win._sort_btn.set_icon_name(icon)
 
     def _on_preferences(self, action, param):
@@ -437,6 +467,19 @@ class HermitageApp(Adw.Application):
         def _on_settings_changed():
             if hasattr(win, "_books"):
                 self._resort_grid(win)
+            # Keep the header sort menu (stateful actions + direction icon)
+            # in sync — Preferences writes straight to config, so without
+            # this the menu shows stale radio/checkbox state.
+            field = cfg_get("sort_field", "title")
+            asc = cfg_get("sort_ascending", True)
+            self.lookup_action("sort-field").set_state(GLib.Variant("s", field))
+            self.lookup_action("sort-ascending").set_state(GLib.Variant("b", asc))
+            icon = (
+                "view-sort-ascending-symbolic"
+                if asc
+                else "view-sort-descending-symbolic"
+            )
+            win._sort_btn.set_icon_name(icon)
 
         prefs = PreferencesWindow(win, on_settings_changed=_on_settings_changed)
         prefs.present()
@@ -446,6 +489,7 @@ class HermitageApp(Adw.Application):
         if not win or not hasattr(win, "_books"):
             return
         from hermitage.insights import InsightsWindow
+
         InsightsWindow(win, win._books).present()
 
     def _on_export(self, action, param):
@@ -485,13 +529,17 @@ class HermitageApp(Adw.Application):
             try:
                 count = export_books(win._books, path)
             except Exception as exc:
-                win._toast_overlay.add_toast(Adw.Toast.new(
-                    f"Export failed: {type(exc).__name__}: {exc}",
-                ))
+                win._toast_overlay.add_toast(
+                    Adw.Toast.new(
+                        f"Export failed: {type(exc).__name__}: {exc}",
+                    )
+                )
                 return
-            win._toast_overlay.add_toast(Adw.Toast.new(
-                f"Exported {count:,} books → {path.name} ({detect_format(path).upper()})",
-            ))
+            win._toast_overlay.add_toast(
+                Adw.Toast.new(
+                    f"Exported {count:,} books → {path.name} ({detect_format(path).upper()})",
+                )
+            )
 
         dialog.save(win, None, _on_save_done)
 
@@ -501,10 +549,12 @@ class HermitageApp(Adw.Application):
             return
 
         from importlib.metadata import PackageNotFoundError, version
+
         try:
             ver = version("hermitage")
         except PackageNotFoundError:
-            ver = "0.0.0+dev"
+            # Running from a source checkout without an installed dist.
+            from hermitage import __version__ as ver
 
         about = Adw.AboutDialog(
             application_name="Hermitage",
@@ -529,9 +579,9 @@ class HermitageApp(Adw.Application):
             win.present()
             return
 
-        import os
         if not config_exists() and not os.environ.get("HERMITAGE_DB"):
             from hermitage.wizard import SetupWizard
+
             wizard = SetupWizard(self)
             wizard.present()
             return
@@ -630,7 +680,9 @@ class HermitageApp(Adw.Application):
         search_bar.connect_entry(win._search_entry)
 
         win._search_btn.bind_property(
-            "active", search_bar, "search-mode-enabled",
+            "active",
+            search_bar,
+            "search-mode-enabled",
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
         toolbar_view.add_top_bar(search_bar)
@@ -653,7 +705,12 @@ class HermitageApp(Adw.Application):
         dir_section.append("Ascending", "app.sort-ascending")
         sort_menu.append_section(None, dir_section)
 
-        sort_btn = Gtk.MenuButton(icon_name="view-sort-descending-symbolic")
+        sort_icon = (
+            "view-sort-ascending-symbolic"
+            if cfg_get("sort_ascending", True)
+            else "view-sort-descending-symbolic"
+        )
+        sort_btn = Gtk.MenuButton(icon_name=sort_icon)
         sort_btn.set_tooltip_text("Sort order")
         sort_btn.set_menu_model(sort_menu)
         header.pack_end(sort_btn)
@@ -679,24 +736,34 @@ class HermitageApp(Adw.Application):
         ctrl.set_scope(Gtk.ShortcutScope.MANAGED)
 
         # Ctrl+F — toggle search
-        ctrl.add_shortcut(Gtk.Shortcut(
-            trigger=Gtk.ShortcutTrigger.parse_string("<Control>f"),
-            action=Gtk.CallbackAction.new(
-                lambda *_: win._search_btn.set_active(
-                    not win._search_btn.get_active(),
-                ) or True,
-            ),
-        ))
+        ctrl.add_shortcut(
+            Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string("<Control>f"),
+                action=Gtk.CallbackAction.new(
+                    lambda *_: (
+                        win._search_btn.set_active(
+                            not win._search_btn.get_active(),
+                        )
+                        or True
+                    ),
+                ),
+            )
+        )
 
         # Ctrl+L — toggle virtual library sidebar
-        ctrl.add_shortcut(Gtk.Shortcut(
-            trigger=Gtk.ShortcutTrigger.parse_string("<Control>l"),
-            action=Gtk.CallbackAction.new(
-                lambda *_: win._vl_btn.set_active(
-                    not win._vl_btn.get_active(),
-                ) or True,
-            ),
-        ))
+        ctrl.add_shortcut(
+            Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string("<Control>l"),
+                action=Gtk.CallbackAction.new(
+                    lambda *_: (
+                        win._vl_btn.set_active(
+                            not win._vl_btn.get_active(),
+                        )
+                        or True
+                    ),
+                ),
+            )
+        )
 
         # Escape — close codex, then search, then VL sidebar
         def _on_escape(*_args):
@@ -709,12 +776,15 @@ class HermitageApp(Adw.Application):
             if win._vl_btn.get_active():
                 win._vl_btn.set_active(False)
                 return True
-            return True
+            # Nothing to close — let Escape propagate to other handlers.
+            return False
 
-        ctrl.add_shortcut(Gtk.Shortcut(
-            trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
-            action=Gtk.CallbackAction.new(_on_escape),
-        ))
+        ctrl.add_shortcut(
+            Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
+                action=Gtk.CallbackAction.new(_on_escape),
+            )
+        )
 
         win.add_controller(ctrl)
 
@@ -725,11 +795,13 @@ class HermitageApp(Adw.Application):
         try:
             books = load_library()
         except FileNotFoundError as exc:
-            win._toast_overlay.set_child(Adw.StatusPage(
-                title="Library Not Found",
-                description=str(exc),
-                icon_name="dialog-error-symbolic",
-            ))
+            win._toast_overlay.set_child(
+                Adw.StatusPage(
+                    title="Library Not Found",
+                    description=str(exc),
+                    icon_name="dialog-error-symbolic",
+                )
+            )
             return GLib.SOURCE_REMOVE
 
         win._books = books
@@ -743,7 +815,9 @@ class HermitageApp(Adw.Application):
 
         # Pre-generate thumbnails and extract colors in background threads.
         # Show warming progress in the title subtitle until it hits 100%.
-        covers = [b.cover_path for b in books if b.cover_path and b.cover_path.is_file()]
+        covers = [
+            b.cover_path for b in books if b.cover_path and b.cover_path.is_file()
+        ]
 
         def _on_warm_progress(done: int, total: int):
             if not win._search_entry.get_text().strip():
@@ -762,11 +836,11 @@ class HermitageApp(Adw.Application):
         return GLib.SOURCE_REMOVE
 
     def _build_grid(
-        self, win: Adw.ApplicationWindow, books: list[Book],
+        self,
+        win: Adw.ApplicationWindow,
+        books: list[Book],
     ) -> Gtk.GridView:
         """Create the grid view with a filtered list model."""
-        from hermitage.config import get as cfg_get
-
         # Build sorted list of BookObjects
         book_objects = [BookObject(b) for b in books]
         sort_field = cfg_get("sort_field", "title")
@@ -870,9 +944,15 @@ class HermitageApp(Adw.Application):
         win._codex.on_search = _codex_search
 
         def _on_book_opened(book_id: int):
-            # Cheapest way to force the GridView to rebind visible cells so the
-            # newly-set read badge appears without waiting for a scroll.
-            win._filter.changed(Gtk.FilterChange.DIFFERENT)
+            # Rebind just this book's cell so the read badge appears without
+            # waiting for a scroll. Signalling remove+add at its position is
+            # the only reliable trigger — a Gtk.FilterChange nudge doesn't
+            # rebind items whose match status didn't change.
+            store = win._store
+            for i in range(store.get_n_items()):
+                if store.get_item(i).book.id == book_id:
+                    store.items_changed(i, 1, 1)
+                    break
 
         win._codex.on_book_opened = _on_book_opened
 
@@ -897,6 +977,7 @@ class HermitageApp(Adw.Application):
 
         def _vl_resolver(name: str):
             from hermitage.search import parse_query as _parse
+
             if name not in vl_cache:
                 expr_str = vl_defs.get(name)
                 vl_cache[name] = _parse(expr_str) if expr_str else None
@@ -914,7 +995,9 @@ class HermitageApp(Adw.Application):
         vl_split.set_show_sidebar(False)
 
         win._vl_btn.bind_property(
-            "active", vl_split, "show-sidebar",
+            "active",
+            vl_split,
+            "show-sidebar",
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
 
@@ -923,13 +1006,19 @@ class HermitageApp(Adw.Application):
     def _wire_search(self, win: Adw.ApplicationWindow):
         """Connect the search entry to the filter pipeline with debounce."""
         win._search_debounce_id = 0
+        # Set when a view (Recently Read, All Books) clears the entry itself:
+        # GtkSearchEntry emits search-changed ~150ms after set_text(""), and
+        # that late clear used to clobber the state the view just applied.
+        win._suppress_clear = False
         win._search_entry.connect("search-changed", self._on_search_changed, win)
 
     # -- event handlers -----------------------------------------------------
 
     @staticmethod
     def _on_book_activated(
-        grid: Gtk.GridView, position: int, win: Adw.ApplicationWindow,
+        grid: Gtk.GridView,
+        position: int,
+        win: Adw.ApplicationWindow,
     ):
         """Handle grid item activation — populate and show the Codex."""
         obj: BookObject = grid.get_model().get_item(position)
@@ -940,7 +1029,8 @@ class HermitageApp(Adw.Application):
 
     @staticmethod
     def _on_vl_activated(
-        listbox: Gtk.ListBox, row: Gtk.ListBoxRow,
+        listbox: Gtk.ListBox,
+        row: Gtk.ListBoxRow,
         win: Adw.ApplicationWindow,
     ):
         """Apply a virtual library filter when a sidebar row is clicked."""
@@ -949,17 +1039,49 @@ class HermitageApp(Adw.Application):
             HermitageApp._apply_recently_read(win)
             return
         if vl_name is None:
-            win._search_entry.set_text("")
+            # Reset directly instead of relying on the search-changed signal:
+            # set_text("") emits nothing when the entry is already empty
+            # (e.g. leaving Recently Read), which used to strand the filter.
+            HermitageApp._clear_search_entry_silently(win)
+            HermitageApp._clear_search_view(win)
         else:
             win._search_entry.set_text(f'vl:"{vl_name}"')
             win._search_btn.set_active(True)
+
+    @staticmethod
+    def _clear_search_entry_silently(win: Adw.ApplicationWindow):
+        """Empty the search entry without its delayed clear side-effects."""
+        if win._search_entry.get_text():
+            win._suppress_clear = True
+            win._search_entry.set_text("")
+
+    @staticmethod
+    def _reset_no_results(win: Adw.ApplicationWindow):
+        """Restore the no-results page's default copy."""
+        win._no_results.set_title("No matches")
+        win._no_results.set_description(
+            "Try a broader search or clear the query.",
+        )
+
+    @staticmethod
+    def _clear_search_view(win: Adw.ApplicationWindow):
+        """Return to the unfiltered 'All Books' view."""
+        win._filter.set_filter_func(None)
+        win._title_widget.set_subtitle(f"{len(win._books)} books")
+        # Restore configured sort — Recently Read or series: filters can
+        # have rewritten the store order.
+        HermitageApp._resort_grid(win)
+        HermitageApp._reset_no_results(win)
+        if not (win._genre_btn.get_active() or win._series_btn.get_active()):
+            win._view_stack.set_visible_child_name("grid")
+        HermitageApp._restore_scroll(win)
 
     @staticmethod
     def _apply_recently_read(win: Adw.ApplicationWindow):
         """Filter the grid to opened books, ordered by most recent open."""
         from hermitage import history
 
-        win._search_entry.set_text("")
+        HermitageApp._clear_search_entry_silently(win)
         win._search_btn.set_active(False)
         HermitageApp._save_scroll_if_unfiltered(win)
 
@@ -975,12 +1097,11 @@ class HermitageApp(Adw.Application):
             return
 
         # Reset the no-results page to its default copy in case it was tweaked.
-        win._no_results.set_title("No matches")
+        HermitageApp._reset_no_results(win)
 
         # Re-order the store so the grid renders in recency order.
         order_index = {bid: i for i, bid in enumerate(recent_ids)}
-        items = [win._store.get_item(i)
-                 for i in range(win._store.get_n_items())]
+        items = [win._store.get_item(i) for i in range(win._store.get_n_items())]
         items.sort(key=lambda obj: order_index.get(obj.book.id, 1 << 30))
         win._store.remove_all()
         for obj in items:
@@ -995,7 +1116,8 @@ class HermitageApp(Adw.Application):
 
     @staticmethod
     def _on_search_changed(
-        entry: Gtk.SearchEntry, win: Adw.ApplicationWindow,
+        entry: Gtk.SearchEntry,
+        win: Adw.ApplicationWindow,
     ):
         """Debounce search — wait 400ms after last keystroke before filtering."""
         if win._search_debounce_id:
@@ -1006,27 +1128,19 @@ class HermitageApp(Adw.Application):
 
         # Clear filter immediately when the search bar is emptied
         if not query:
-            win._filter.set_filter_func(None)
-            win._title_widget.set_subtitle(f"{len(win._books)} books")
-            # Restore configured sort — Recently Read or series: filters can
-            # have rewritten the store order.
-            HermitageApp._resort_grid(win)
-            if not (win._genre_btn.get_active() or win._series_btn.get_active()):
-                win._view_stack.set_visible_child_name("grid")
-            HermitageApp._restore_scroll(win)
+            if win._suppress_clear:
+                # A view (Recently Read, All Books) emptied the entry itself
+                # and already applied its own state — don't clobber it.
+                win._suppress_clear = False
+                return
+            HermitageApp._clear_search_view(win)
             return
 
         def _apply_filter():
             win._search_debounce_id = 0
             text = entry.get_text().strip()
             if not text:
-                win._filter.set_filter_func(None)
-                win._title_widget.set_subtitle(f"{len(win._books)} books")
-                # Restore default sort
-                HermitageApp._resort_grid(win)
-                if not win._genre_btn.get_active():
-                    win._view_stack.set_visible_child_name("grid")
-                HermitageApp._restore_scroll(win)
+                HermitageApp._clear_search_view(win)
                 return GLib.SOURCE_REMOVE
 
             HermitageApp._save_scroll_if_unfiltered(win)
@@ -1037,10 +1151,10 @@ class HermitageApp(Adw.Application):
             )
 
             # Auto-sort by series_index when filtering by series
-            low = text.lower()
-            if low.startswith("series:") or low.startswith('series:"'):
-                items = [win._store.get_item(i)
-                         for i in range(win._store.get_n_items())]
+            if text.lower().startswith("series:"):
+                items = [
+                    win._store.get_item(i) for i in range(win._store.get_n_items())
+                ]
                 _sort_books(items, "series", True)
                 win._store.remove_all()
                 for obj in items:
@@ -1055,7 +1169,7 @@ class HermitageApp(Adw.Application):
             if not (win._genre_btn.get_active() or win._series_btn.get_active()):
                 if count == 0:
                     win._no_results.set_description(
-                        f'No books match “{text}”. '
+                        f"No books match “{text}”. "
                         "Try a broader search or clear the query.",
                     )
                     win._view_stack.set_visible_child_name("no-results")
@@ -1095,8 +1209,6 @@ class HermitageApp(Adw.Application):
     @staticmethod
     def _resort_grid(win: Adw.ApplicationWindow):
         """Re-sort the grid store based on current config values."""
-        from hermitage.config import get as cfg_get
-
         store = win._store
         field = cfg_get("sort_field", "title")
         ascending = cfg_get("sort_ascending", True)
@@ -1162,10 +1274,21 @@ class HermitageApp(Adw.Application):
     @staticmethod
     def _setup_breakpoints(win: Adw.ApplicationWindow, grid: Gtk.GridView):
         """Configure responsive column scaling via Adw.Breakpoint."""
+
         def _uint(v: int) -> GObject.Value:
             val = GObject.Value(GObject.TYPE_UINT)
             val.set_uint(v)
             return val
+
+        # When several breakpoints match, libadwaita applies the LAST one
+        # added — so the broad condition must come first and the narrowest
+        # last, or a <500sp window gets the medium columns.
+        bp_medium = Adw.Breakpoint(
+            condition=Adw.BreakpointCondition.parse("max-width: 900sp"),
+        )
+        bp_medium.add_setter(grid, "min-columns", _uint(3))
+        bp_medium.add_setter(grid, "max-columns", _uint(5))
+        win.add_breakpoint(bp_medium)
 
         bp_narrow = Adw.Breakpoint(
             condition=Adw.BreakpointCondition.parse("max-width: 500sp"),
@@ -1173,13 +1296,6 @@ class HermitageApp(Adw.Application):
         bp_narrow.add_setter(grid, "min-columns", _uint(2))
         bp_narrow.add_setter(grid, "max-columns", _uint(3))
         win.add_breakpoint(bp_narrow)
-
-        bp_medium = Adw.Breakpoint(
-            condition=Adw.BreakpointCondition.parse("max-width: 900sp"),
-        )
-        bp_medium.add_setter(grid, "min-columns", _uint(3))
-        bp_medium.add_setter(grid, "max-columns", _uint(5))
-        win.add_breakpoint(bp_medium)
 
 
 def run():

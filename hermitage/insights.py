@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from pathlib import Path
 
 import gi
 
@@ -119,9 +118,11 @@ class InsightsWindow(Adw.Window):
 
     def __init__(self, parent: Gtk.Window, books: list[Book]):
         super().__init__(
-            transient_for=parent, modal=True,
+            transient_for=parent,
+            modal=True,
             title="Library Insights",
-            default_width=720, default_height=720,
+            default_width=720,
+            default_height=720,
         )
 
         self._summary = summarize(books)
@@ -148,7 +149,9 @@ class InsightsWindow(Adw.Window):
         )
         column.append(
             self._build_top_section(
-                "Formats", self._summary.format_counts, max_rows=20,
+                "Formats",
+                self._summary.format_counts,
+                max_rows=20,
             ),
         )
         column.append(self._build_audit())
@@ -175,10 +178,10 @@ class InsightsWindow(Adw.Window):
         flow.set_column_spacing(8)
 
         tiles = [
-            ("Books",       f"{s.total_books:,}"),
-            ("Authors",     f"{s.total_authors:,}"),
-            ("Series",      f"{s.total_series:,}"),
-            ("Tags",        f"{s.total_tags:,}"),
+            ("Books", f"{s.total_books:,}"),
+            ("Authors", f"{s.total_authors:,}"),
+            ("Series", f"{s.total_series:,}"),
+            ("Tags", f"{s.total_tags:,}"),
             ("Identifiers", f"{s.total_identifiers:,}"),
         ]
         for label, value in tiles:
@@ -204,22 +207,25 @@ class InsightsWindow(Adw.Window):
         card.add_css_class("insights-tile")
         card.set_margin_top(2)
 
-        v = Gtk.Label(label=value, xalign=0.5)
-        v.add_css_class("insights-tile-value")
+        value_lbl = Gtk.Label(label=value, xalign=0.5)
+        value_lbl.add_css_class("insights-tile-value")
 
-        l = Gtk.Label(label=label, xalign=0.5)
-        l.add_css_class("insights-tile-label")
+        name_lbl = Gtk.Label(label=label, xalign=0.5)
+        name_lbl.add_css_class("insights-tile-label")
 
-        v.set_margin_top(14)
-        l.set_margin_bottom(14)
-        card.append(v)
-        card.append(l)
+        value_lbl.set_margin_top(14)
+        name_lbl.set_margin_bottom(14)
+        card.append(value_lbl)
+        card.append(name_lbl)
         return card
 
     # ------------------------------------------------------------------
 
     def _build_top_section(
-        self, title: str, items: list[tuple[str, int]], max_rows: int = 15,
+        self,
+        title: str,
+        items: list[tuple[str, int]],
+        max_rows: int = 15,
     ) -> Gtk.Widget:
         """Bar-style ranked list with proportional fill."""
         section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -279,10 +285,10 @@ class InsightsWindow(Adw.Window):
         list_box.set_selection_mode(Gtk.SelectionMode.NONE)
 
         rows = [
-            ("Missing cover files",   s.no_cover,        "image-x-generic-symbolic"),
-            ("No format files",       s.no_formats,      "document-properties-symbolic"),
-            ("No tags",               s.no_tags,         "tag-symbolic"),
-            ("No external IDs",       s.no_identifiers,  "emblem-shared-symbolic"),
+            ("Missing cover files", s.no_cover, "image-x-generic-symbolic"),
+            ("No format files", s.no_formats, "document-properties-symbolic"),
+            ("No tags", s.no_tags, "tag-symbolic"),
+            ("No external IDs", s.no_identifiers, "emblem-shared-symbolic"),
         ]
         total = s.total_books or 1
         for title, sample, icon in rows:
@@ -291,7 +297,11 @@ class InsightsWindow(Adw.Window):
         return section
 
     def _make_audit_row(
-        self, title: str, sample: list[Book], icon_name: str, total: int,
+        self,
+        title: str,
+        sample: list[Book],
+        icon_name: str,
+        total: int,
     ) -> Gtk.Widget:
         row = Adw.ActionRow()
         row.set_title(title)

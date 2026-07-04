@@ -20,7 +20,7 @@ hermitage
 hermitage-verify   # integrity check + path-resolution benchmark, exits non-zero on issues
 ```
 
-There is **no test suite, no linter config, and no build step** in this repo. The verification path is `hermitage-verify` against the real library and a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run `hermitage-verify` before declaring done.
+The test suite lives in `tests/` (63 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
 
 System deps on Fedora: `gtk4`, `libadwaita`, `python3-gobject` (already installed). PyPI deps: `PyGObject`, `Pillow`, `PyYAML` (declared in `pyproject.toml`).
 
@@ -65,7 +65,7 @@ The grid uses `Gio.ListStore[BookObject]` → `Gtk.FilterListModel` (with a `Gtk
 
 `../CalibreQuarry/` (the `cquarry` CLI) reads the same `metadata.db` and has battle-tested logic Hermitage wants. Roadmap **Phase 11** tracks porting as much of it as makes sense into `hermitage/`. When you touch `database.py` or search, check `../CalibreQuarry/src/cquarry/db.py` first — don't reinvent code that already exists there.
 
-The single highest-value port (and a Phase 7 bullet) is the **locked-DB fallback** from `CalibreDB._open` (`../CalibreQuarry/src/cquarry/db.py:31`): try `mode=ro` first; on `sqlite3.OperationalError` whose message contains "locked", `shutil.copy2` the `.db` plus its `-wal` and `-shm` siblings to a `tempfile.mkstemp` path and reopen against the copy. Log one note to stderr that we're reading from a snapshot, and unlink the temp files on shutdown. Hermitage's current `database._connect()` will hard-fail when Calibre is mid-write, so port this before any other Phase 11 work.
+The **locked-DB fallback** from `CalibreDB._open` is already ported into `database._connect()` (snapshot copy of the `.db` plus `-wal`/`-shm` siblings when Calibre holds the lock, one stderr note, atexit cleanup) and is covered by a test that takes a real `BEGIN EXCLUSIVE` lock. The author query also follows cquarry's ordered-subquery approach (`ORDER BY bal.id`, pipe-escaped commas restored). The main Phase 11 item still open is **custom columns** (`db.get_custom_columns()` / `db.load_custom_column()`).
 
 ## Conventions specific to this project
 

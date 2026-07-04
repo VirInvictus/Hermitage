@@ -95,8 +95,8 @@ Port as much of `../CalibreQuarry` (the `cquarry` CLI) into Hermitage as makes s
 
 The sweep found no behavioural bugs (everything compiles cleanly), but this is the weakest portfolio repo on hygiene: no tests and the most import lint in the portfolio set.
 
-- [ ] **Build a test suite.** This is the only portfolio Python project with zero tests, against the house rule that tests are not optional. The non-GTK layers (config, database reads, search/`parse_query`) are all unit-testable without a display; the CalibreQuarry test style (unittest, temp sqlite fixtures) would transplant directly. Biggest gap in the repo.
-- [ ] **Shadowed module-level imports (4x F811):** `app.py` imports `cfg_get` and `os` at module level, never uses them there, then re-imports them locally at lines 390, 532, 768, 1098. Drop the unused module-level imports (or the local re-imports) so there is one obvious binding.
-- [ ] **11x F401 unused imports** across `app.py`, `insights.py`, `preferences.py`, `verify.py`, `wizard.py`, all auto-fixable with `ruff check --fix`; plus one E741 ambiguous variable name.
-- [ ] **E402 noise control:** the 24 E402s are the standard `gi.require_version` ordering pattern and are fine; add a per-file ignore so real E402s stay visible.
-- [ ] Commit the pending deletion of `claude.run` sitting in the working tree.
+- [x] **Build a test suite.** Shipped in v0.16.0: 63 unittest tests under `tests/` in the CalibreQuarry style (stdlib unittest, temp sqlite fixtures). Covers the search grammar, the database layer against a hand-built `metadata.db` fixture (including the locked-DB snapshot fallback under a real `BEGIN EXCLUSIVE` lock), config, export, reading history, and the genre/series/insights aggregation builders. Run with `python -m unittest discover -s tests`.
+- [x] **Shadowed module-level imports (4x F811):** the local re-imports in `app.py` are gone; the module-level `cfg_get` / `cfg_set` / `os` bindings are the one obvious binding. (v0.16.0)
+- [x] **11x F401 unused imports** removed via `ruff check --fix`; the E741 ambiguous `l` in `insights.py` renamed. (v0.16.0)
+- [x] **E402 noise control:** `[tool.ruff.lint.per-file-ignores]` in `pyproject.toml` ignores E402 under `hermitage/`; `ruff check hermitage/` is clean. (v0.16.0)
+- [x] Commit the pending deletion of `claude.run` sitting in the working tree. (Folded into the v0.16.0 commit.)

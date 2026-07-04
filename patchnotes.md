@@ -1,5 +1,140 @@
 # Hermitage — Patch Notes
 
+## v0.16.0 (2026-07-04) — Audit Sweep: Bugfixes, Test Suite, Lint Hygiene
+
+---
+
+### New Features
+
+**Test suite: 63 unittest tests under `tests/`.** The Phase 12 headline.
+Hermitage was the only portfolio Python project with zero tests; the
+non-GTK layers are now covered in the CalibreQuarry style (stdlib
+`unittest`, temp-sqlite fixtures): the full search grammar
+(tokenizer, parser, evaluator, `filter_books` fallback), the database
+layer against a hand-built `metadata.db` fixture (joined-query fields,
+author ordering, the locked-DB snapshot fallback exercised with a real
+`BEGIN EXCLUSIVE` lock), config round-trips, JSON/CSV export, reading
+history (including `humanize` buckets), and the pure aggregation
+builders behind the genre/series/insights surfaces. Run with
+`python -m unittest discover -s tests`.
+
+**Keyboard accelerators for app actions.** `Ctrl+,` opens Preferences
+(the GNOME standard binding) and `Ctrl+I` opens Library Insights.
+Ctrl+F / Ctrl+L keep working as window-level shortcuts.
+
+### Bug Fixes
+
+**Per-cell hover glow no longer bleeds across the grid.** Every cell's
+dynamic color provider defined the same `.cover-cell-active:hover`
+selector display-wide, so whichever cell bound last set the glow color
+for *all* visible cells. The class is now namespaced per book
+(`cover-glow-<id>`), mirroring the placeholder-tint pattern, and both
+the provider and the class are dropped on unbind and rebind.
+
+**Search parser: trailing clauses are no longer silently dropped.**
+`dragons magic and epic` parsed as `dragons AND magic` and discarded
+`and epic`: the implicit-AND loop ran after the explicit one, and
+`parse()` never checked that the token stream was fully consumed. One
+unified loop now handles explicit and implicit AND in any order, and
+`parse()` requires EOF, so malformed queries (stray `)`) raise
+`ParseError` and fall back to "match all" instead of evaluating a
+truncated AST.
+
+**Recently Read and All Books no longer fight the search entry.** Two
+related defects: (1) leaving Recently Read via "All Books" did nothing
+when the search entry was already empty, because `set_text("")` emits
+no `search-changed` signal, stranding the recency filter; (2) entering
+Recently Read *with* a search active queued a delayed `search-changed`
+clear (`GtkSearchEntry` emits ~150 ms after `set_text`) that then
+clobbered the recency reorder. Both flows now reset the view directly
+through a shared `_clear_search_view()` path and suppress the stale
+signal-driven clear with a one-shot flag. The no-results page copy
+("Nothing here yet") is also restored to its default on every reset.
+
+**Responsive breakpoints applied in the wrong precedence order.**
+libadwaita applies the *last added* breakpoint whose condition
+matches. Narrow (max-width 500sp) was added before medium (900sp), so
+a sub-500sp window matched both and got medium's 3–5 columns instead
+of narrow's 2–3. The broad condition is now added first.
+
+**Cold-cache cover starvation fixed.** `warm_cache()` submitted every
+cover in the library to the same 4-thread executor that serves visible
+cells, so on a cold cache the first screen's thumbnails queued behind
+thousands of warm jobs and the grid sat on placeholders for the whole
+warm pass. Warm sweeps (thumbnails and colors) now run on their own
+2-thread executors; interactive requests never wait behind them.
+
+**Coalesced texture requests deliver every callback.** `_pending` was
+a set: if the grid cell had already requested a cover, a second
+request for the same file (the Codex hero, reliably, since opening a
+book means its cell just bound) returned without registering its
+callback and that surface never got the texture. `_pending` is now a
+path → callback-list map; one decode, every caller notified.
+
+**Cover-warming progress can no longer stall below 100%.** If a
+thumbnail job threw (cover deleted mid-scan), the done-counter never
+advanced and the "indexing covers (N%)" subtitle stuck forever. The
+counter now increments in a `finally`. The zero-byte-file check also
+moved inside the existing try so a cover vanishing between stat calls
+warns instead of raising.
+
+**Read badge appears immediately after clicking Read.** The old
+refresh nudged the filter with `Gtk.FilterChange.DIFFERENT`, but
+`GtkFilterListModel` only signals items whose match status changed, so
+nothing rebound and the badge waited for a scroll. The store now emits
+`items_changed(pos, 1, 1)` for just that book's position, forcing a
+rebind of the one cell.
+
+**Sort menu stays in sync with Preferences.** Changing sort field or
+direction in the Preferences window wrote config and re-sorted the
+grid but left the header menu's stateful actions (radio selection,
+Ascending check) and the direction icon stale. The settings-changed
+callback now pushes config state back into both actions and the icon.
+The icon also reflects the configured direction at startup instead of
+always starting as "descending".
+
+**Author list preserves Calibre's credit order and comma names.**
+`GROUP_CONCAT(DISTINCT a.name)` returned authors in an unspecified
+order, so `authors[0]` (used for author sort and the Codex author
+link) could be the wrong name on multi-author books. The query now
+uses cquarry's ordered-subquery approach (`ORDER BY bal.id`), and
+Calibre's pipe-escaped commas in author names ("Gaiman| Neil") are
+restored to real commas for display.
+
+**Escape propagates when there is nothing to close.** The shortcut
+handler returned `True` unconditionally, swallowing Escape even with
+no codex, search bar, or sidebar open.
+
+**`load_virtual_libraries()` closes its connection on error** (the
+cursor read is now wrapped in `try/finally` inside the broad guard).
+
+### Structural Improvements
+
+**Single source of truth for the version restored.**
+`hermitage/__init__.py` had drifted to 0.8.0 while `pyproject.toml`
+said 0.15.0. The pyproject now declares `dynamic = ["version"]` and
+reads `hermitage.__version__`, so the drift class is gone; the About
+dialog falls back to `__version__` (instead of "0.0.0+dev") when
+running from a source checkout without an installed dist.
+
+**Lint hygiene: `ruff check` is clean.** The Phase 12 sweep items: the
+four F811 shadowed re-imports in `app.py` (`cfg_get`, `set_value`,
+`os` were imported at module level, then re-imported locally) now use
+the module-level bindings; the 11 F401 unused imports are gone; the
+E741 ambiguous `l` in `insights.py` is renamed; and a
+`[tool.ruff.lint.per-file-ignores]` entry silences E402 for the
+`gi.require_version()` import pattern so real violations stay visible.
+The wizard's magic `set_ellipsize(2)` is now
+`Pango.EllipsizeMode.MIDDLE`.
+
+**Redundant `series:` prefix check collapsed** in the search handler
+(`startswith("series:")` already covers `series:"`), and the empty-
+debounce branch now routes through the same `_clear_search_view()`
+path as the immediate clear, fixing a subtle inconsistency where it
+checked only the genre toggle and not the series toggle.
+
+---
+
 ## v0.15.0 (2026-05-01) — Flatpak Manifest
 
 ---

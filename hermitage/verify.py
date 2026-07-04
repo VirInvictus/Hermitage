@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import sys
 import time
-from pathlib import Path
 
-from hermitage.database import Book, load_library, library_root
+from hermitage.database import load_library, library_root
 
 
 def verify_library():

@@ -23,6 +23,7 @@ from hermitage.database import Book
 # Tokenizer
 # ---------------------------------------------------------------------------
 
+
 class TokType(Enum):
     WORD = auto()
     QUOTED = auto()
@@ -95,20 +96,21 @@ def tokenize(query: str) -> list[Token]:
 # AST nodes
 # ---------------------------------------------------------------------------
 
+
 class Expr:
     """Base class for AST nodes."""
 
 
 @dataclass(slots=True)
 class FieldExpr(Expr):
-    field: str       # e.g. "tags", "title", "vl"
-    value: str       # the search term
-    exact: bool      # True if prefixed with =
+    field: str  # e.g. "tags", "title", "vl"
+    value: str  # the search term
+    exact: bool  # True if prefixed with =
 
 
 @dataclass(slots=True)
 class BareExpr(Expr):
-    value: str       # searches all fields
+    value: str  # searches all fields
 
 
 @dataclass(slots=True)
@@ -131,6 +133,7 @@ class NotExpr(Expr):
 # ---------------------------------------------------------------------------
 # Recursive descent parser
 # ---------------------------------------------------------------------------
+
 
 class ParseError(Exception):
     pass
@@ -159,6 +162,10 @@ class Parser:
         if self._peek().type == TokType.EOF:
             return None
         expr = self._or_expr()
+        # Anything left over means the query didn't parse as one expression
+        # (e.g. a stray ')'). Raise so filter_books falls back to "match all"
+        # instead of silently evaluating a truncated AST.
+        self._expect(TokType.EOF)
         return expr
 
     def _or_expr(self) -> Expr:
@@ -170,18 +177,23 @@ class Parser:
         return left
 
     def _and_expr(self) -> Expr:
+        # One loop handles explicit and implicit AND in any order — two
+        # sequential loops mis-parsed "a b and c" (the implicit pass consumed
+        # "a b", then the trailing explicit "and c" was left dangling).
         left = self._not_expr()
-        while self._peek().type == TokType.AND:
-            self._advance()
+        while True:
+            tok_type = self._peek().type
+            if tok_type == TokType.AND:
+                self._advance()
+            elif tok_type not in (
+                TokType.WORD,
+                TokType.QUOTED,
+                TokType.LPAREN,
+                TokType.NOT,
+            ):
+                return left
             right = self._not_expr()
             left = AndExpr(left, right)
-        # Implicit AND: two primaries next to each other without an operator
-        while self._peek().type in (
-            TokType.WORD, TokType.QUOTED, TokType.LPAREN, TokType.NOT,
-        ):
-            right = self._not_expr()
-            left = AndExpr(left, right)
-        return left
 
     def _not_expr(self) -> Expr:
         if self._peek().type == TokType.NOT:
@@ -212,7 +224,9 @@ class Parser:
                 elif val_tok.type == TokType.WORD:
                     value = val_tok.value
                 else:
-                    raise ParseError(f"Expected value after {field}:, got {val_tok.type}")
+                    raise ParseError(
+                        f"Expected value after {field}:, got {val_tok.type}"
+                    )
                 exact = value.startswith("=")
                 if exact:
                     value = value[1:]
@@ -320,11 +334,15 @@ def evaluate(
         return _match_bare(book, expr.value)
     elif isinstance(expr, AndExpr):
         return evaluate(expr.left, book, vl_resolver) and evaluate(
-            expr.right, book, vl_resolver,
+            expr.right,
+            book,
+            vl_resolver,
         )
     elif isinstance(expr, OrExpr):
         return evaluate(expr.left, book, vl_resolver) or evaluate(
-            expr.right, book, vl_resolver,
+            expr.right,
+            book,
+            vl_resolver,
         )
     elif isinstance(expr, NotExpr):
         return not evaluate(expr.child, book, vl_resolver)

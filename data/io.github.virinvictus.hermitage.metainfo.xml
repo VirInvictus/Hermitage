@@ -85,6 +85,14 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="0.16.0" date="2026-07-04">
+      <description>
+        <p>Audit sweep: a 63-test unit suite, clean lint, and a round of
+           bugfixes covering the hover-glow color bleed, search-parser
+           clause dropping, Recently Read state handling, breakpoint
+           precedence, cold-cache cover starvation, and author ordering.</p>
+      </description>
+    </release>
     <release version="0.15.0" date="2026-05-01">
       <description>
         <p>Flatpak manifest targeting GNOME 50 — builds end-to-end with
