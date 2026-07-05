@@ -9,46 +9,42 @@ jobs:
   check:
     name: ruff + tests
     runs-on: ubuntu-latest
+    # Hermitage needs PyGObject >= 3.54, which builds against girepository-2.0.
+    # Ubuntu runners package girepository-1.0 only; Fedora carries girepository-2.0
+    # (in glib2-devel) and matches the project's real GTK 4.22 target. Same
+    # container approach as the workspace's Rust GTK apps (Atrium, Colophon).
+    container: fedora:latest
     steps:
+      - name: Install system + build dependencies
+        run: |
+          dnf install -y \
+            gcc \
+            python3 \
+            python3-devel \
+            glib2-devel \
+            gobject-introspection-devel \
+            gtk4-devel \
+            libadwaita-devel \
+            cairo-devel \
+            cairo-gobject-devel \
+            pkgconf-pkg-config
+
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        # PyGObject builds against girepository/cairo and imports the GTK 4
-        # and libadwaita typelibs at test time (gi.require_version for Gtk 4.0,
-        # Adw 1, Gdk 4.0, Pango, PangoCairo). The tests are DB-only and need no
-        # display, so no xvfb is required.
+      - name: Create venv and install ruff + project
+        # A venv sidesteps Fedora's PEP 668 external-management guard. PyGObject
+        # builds against the system girepository-2.0 installed above; the tests
+        # are DB-only and need no display.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libgtk-4-dev \
-            libadwaita-1-dev \
-            libgirepository1.0-dev \
-            gobject-introspection \
-            gir1.2-gtk-4.0 \
-            gir1.2-adw-1 \
-            libcairo2-dev \
-            pkg-config \
-            python3-dev
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install ruff
-        run: pip install ruff==0.15.20
-
-      - name: Install project
-        # ubuntu-latest (24.04) packages girepository-1.0 only. PyGObject >= 3.52
-        # switched to girepository-2.0 (not available there), so its native build
-        # fails. Pin below that so the wheel builds against libgirepository1.0-dev
-        # installed above. The tests are DB-only and don't exercise new PyGObject.
-        run: pip install . "PyGObject<3.52"
+          python3 -m venv /venv
+          /venv/bin/pip install --upgrade pip
+          /venv/bin/pip install ruff==0.15.20 .
 
       - name: ruff check
-        run: ruff check hermitage/
+        run: /venv/bin/ruff check hermitage/
 
       - name: ruff format --check
-        run: ruff format --check hermitage/ tests/
+        run: /venv/bin/ruff format --check hermitage/ tests/
 
       - name: unittest
-        run: python -m unittest discover -s tests
+        run: /venv/bin/python -m unittest discover -s tests
