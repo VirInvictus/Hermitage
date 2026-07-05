@@ -38,7 +38,11 @@ jobs:
         run: pip install ruff==0.15.20
 
       - name: Install project
-        run: pip install .
+        # ubuntu-latest (24.04) packages girepository-1.0 only. PyGObject >= 3.52
+        # switched to girepository-2.0 (not available there), so its native build
+        # fails. Pin below that so the wheel builds against libgirepository1.0-dev
+        # installed above. The tests are DB-only and don't exercise new PyGObject.
+        run: pip install . "PyGObject<3.52"
 
       - name: ruff check
         run: ruff check hermitage/
