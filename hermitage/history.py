@@ -52,6 +52,7 @@ def _connect() -> sqlite3.Connection:
 # Writes
 # ---------------------------------------------------------------------------
 
+
 def record_open(book_id: int) -> str:
     """Append an open event for *book_id*. Returns the timestamp written."""
     global _opened_cache
@@ -74,6 +75,7 @@ def record_open(book_id: int) -> str:
 # ---------------------------------------------------------------------------
 # Reads
 # ---------------------------------------------------------------------------
+
 
 def opened_book_ids() -> set[int]:
     """Return every book id that has at least one open event (cached)."""
@@ -133,6 +135,7 @@ def recently_read(limit: int = 50) -> list[int]:
 # ---------------------------------------------------------------------------
 # Display helpers
 # ---------------------------------------------------------------------------
+
 
 def humanize(ts: datetime) -> str:
     """Render *ts* as a short relative phrase ('3 days ago', 'just now')."""

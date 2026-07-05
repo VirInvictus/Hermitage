@@ -68,7 +68,8 @@ class GenreBrowser(Gtk.Box):
 
         self._clamp = Adw.Clamp(maximum_size=800, tightening_threshold=600)
         self._content = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL, spacing=24,
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=24,
         )
         self._content.set_margin_start(24)
         self._content.set_margin_end(24)
@@ -110,7 +111,10 @@ class GenreBrowser(Gtk.Box):
             self._content.append(section)
 
     def _build_section(
-        self, display_name: str, full_path: str, node: dict,
+        self,
+        display_name: str,
+        full_path: str,
+        node: dict,
     ) -> Gtk.Widget:
         """Build a section card for a top-level category."""
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -121,7 +125,8 @@ class GenreBrowser(Gtk.Box):
         # Section header with total count
         total = _total_count(node)
         header_box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=8,
         )
         header_box.set_margin_start(16)
         header_box.set_margin_end(16)
@@ -153,7 +158,9 @@ class GenreBrowser(Gtk.Box):
             direct_label.add_css_class("genre-direct")
             direct_btn.set_child(direct_label)
             direct_btn.connect(
-                "clicked", self._on_genre_clicked, full_path,
+                "clicked",
+                self._on_genre_clicked,
+                full_path,
             )
             card.append(direct_btn)
 
@@ -169,7 +176,11 @@ class GenreBrowser(Gtk.Box):
         return card
 
     def _build_children(
-        self, container: Gtk.Box, node: dict, parent_path: str, depth: int,
+        self,
+        container: Gtk.Box,
+        node: dict,
+        parent_path: str,
+        depth: int,
     ):
         """Recursively render child nodes. Leaf nodes as pills, branches as
         labeled subsections with their own pill flows."""
@@ -213,7 +224,8 @@ class GenreBrowser(Gtk.Box):
 
             # Subsection header
             sub_header = Gtk.Box(
-                orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
+                orientation=Gtk.Orientation.HORIZONTAL,
+                spacing=6,
             )
             sub_header.set_margin_start(indent)
             sub_header.set_margin_end(16)
@@ -251,17 +263,25 @@ class GenreBrowser(Gtk.Box):
                 direct_label.add_css_class("genre-direct")
                 direct_btn.set_child(direct_label)
                 direct_btn.connect(
-                    "clicked", self._on_genre_clicked, child_path,
+                    "clicked",
+                    self._on_genre_clicked,
+                    child_path,
                 )
                 container.append(direct_btn)
 
             # Recurse into this branch's children
             self._build_children(
-                container, child_node, child_path, depth + 1,
+                container,
+                child_node,
+                child_path,
+                depth + 1,
             )
 
     def _make_pill(
-        self, name: str, full_path: str, node: dict,
+        self,
+        name: str,
+        full_path: str,
+        node: dict,
     ) -> Gtk.Button:
         """Create a single genre pill button."""
         total = _total_count(node)
@@ -269,7 +289,8 @@ class GenreBrowser(Gtk.Box):
         pill_btn.add_css_class("genre-pill")
 
         pill_box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
         )
         name_label = Gtk.Label(label=name)
         name_label.set_ellipsize(Pango.EllipsizeMode.END)

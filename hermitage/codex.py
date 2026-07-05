@@ -97,19 +97,19 @@ _FORMAT_PRIORITY = ["EPUB", "PDF", "MOBI", "AZW3", "CBZ", "CBR", "DJVU", "TXT"]
 # uses opaque ids or already-encoded paths).
 
 _IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
-    "isbn":          ("Open Library",   "https://openlibrary.org/isbn/{}"),
-    "goodreads":     ("Goodreads",      "https://www.goodreads.com/book/show/{}"),
-    "google":        ("Google Books",   "https://books.google.com/books?id={}"),
-    "amazon":        ("Amazon",         "https://www.amazon.com/dp/{}"),
-    "asin":          ("Amazon",         "https://www.amazon.com/dp/{}"),
-    "mobi-asin":     ("Amazon",         "https://www.amazon.com/dp/{}"),
-    "barnesnoble":   ("Barnes & Noble", "https://www.barnesandnoble.com/s/{}"),
-    "storygraph":    ("StoryGraph",     "https://app.thestorygraph.com/books/{}"),
-    "hardcover":     ("Hardcover",      "https://hardcover.app/books/{}"),
-    "fictiondb":     ("FictionDB",      "https://www.fictiondb.com/title/{}"),
-    "doi":           ("DOI",            "https://doi.org/{}"),
-    "url":           ("Link",           "{}"),
-    "uri":           ("Link",           "{}"),
+    "isbn": ("Open Library", "https://openlibrary.org/isbn/{}"),
+    "goodreads": ("Goodreads", "https://www.goodreads.com/book/show/{}"),
+    "google": ("Google Books", "https://books.google.com/books?id={}"),
+    "amazon": ("Amazon", "https://www.amazon.com/dp/{}"),
+    "asin": ("Amazon", "https://www.amazon.com/dp/{}"),
+    "mobi-asin": ("Amazon", "https://www.amazon.com/dp/{}"),
+    "barnesnoble": ("Barnes & Noble", "https://www.barnesandnoble.com/s/{}"),
+    "storygraph": ("StoryGraph", "https://app.thestorygraph.com/books/{}"),
+    "hardcover": ("Hardcover", "https://hardcover.app/books/{}"),
+    "fictiondb": ("FictionDB", "https://www.fictiondb.com/title/{}"),
+    "doi": ("DOI", "https://doi.org/{}"),
+    "url": ("Link", "{}"),
+    "uri": ("Link", "{}"),
 }
 
 
@@ -147,7 +147,7 @@ class CodexView(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._current_book: Book | None = None
         self.on_dismiss = None
-        self.on_search = None       # callback(query_str) — populate search bar
+        self.on_search = None  # callback(query_str) — populate search bar
         self.on_book_opened = None  # callback(book_id) — fired after Read launch
         self._build_ui()
 
@@ -185,7 +185,8 @@ class CodexView(Gtk.Box):
 
         # Content overlay: cover + text
         hero_content = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=20,
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=20,
         )
         hero_content.set_valign(Gtk.Align.END)
         hero_content.set_halign(Gtk.Align.FILL)
@@ -385,7 +386,8 @@ class CodexView(Gtk.Box):
         # Identifiers — link buttons for the types we know how to URL-format
         self._clear_flow_box(self._idents_flow)
         linkable = [
-            (key, val) for key, val in book.identifiers.items()
+            (key, val)
+            for key, val in book.identifiers.items()
             if key in _IDENTIFIER_LINKS and val
         ]
         if linkable:
@@ -510,6 +512,7 @@ class CodexView(Gtk.Box):
             self._last_read_label.set_visible(False)
             return
         from hermitage import history
+
         ts = history.last_opened_for(book.id)
         if ts is None:
             self._last_read_label.set_visible(False)
@@ -561,6 +564,7 @@ class CodexView(Gtk.Box):
         # Record the open immediately — even if the launcher races we want the
         # event in history.db so the indicator and "Last read" line update.
         from hermitage import history
+
         history.record_open(book.id)
         if self.on_book_opened:
             self.on_book_opened(book.id)

@@ -82,7 +82,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
         )
         self._ascending_row.set_active(get("sort_ascending", True))
         self._ascending_row.connect(
-            "notify::active", self._on_sort_dir_changed,
+            "notify::active",
+            self._on_sort_dir_changed,
         )
         display_group.add(self._ascending_row)
 

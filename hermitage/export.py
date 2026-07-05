@@ -53,31 +53,45 @@ def export_books(books: list[Book], path: Path, fmt: str | None = None) -> int:
     elif fmt == "csv":
         # Lists / dicts get joined / JSON-encoded so the CSV stays single-line.
         fieldnames = [
-            "id", "title", "sort", "authors", "series", "series_index",
-            "tags", "rating", "formats", "pubdate", "added", "has_cover",
-            "path", "identifiers",
+            "id",
+            "title",
+            "sort",
+            "authors",
+            "series",
+            "series_index",
+            "tags",
+            "rating",
+            "formats",
+            "pubdate",
+            "added",
+            "has_cover",
+            "path",
+            "identifiers",
         ]
         with path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)
             writer.writeheader()
             for b in books:
-                writer.writerow({
-                    "id": b.id,
-                    "title": b.title,
-                    "sort": b.sort,
-                    "authors": "; ".join(b.authors),
-                    "series": b.series or "",
-                    "series_index": b.series_index,
-                    "tags": "; ".join(b.tags),
-                    "rating": b.rating if b.rating is not None else "",
-                    "formats": "; ".join(b.formats),
-                    "pubdate": b.pubdate or "",
-                    "added": b.timestamp or "",
-                    "has_cover": b.has_cover,
-                    "path": b.path,
-                    "identifiers": json.dumps(b.identifiers, ensure_ascii=False)
-                                    if b.identifiers else "",
-                })
+                writer.writerow(
+                    {
+                        "id": b.id,
+                        "title": b.title,
+                        "sort": b.sort,
+                        "authors": "; ".join(b.authors),
+                        "series": b.series or "",
+                        "series_index": b.series_index,
+                        "tags": "; ".join(b.tags),
+                        "rating": b.rating if b.rating is not None else "",
+                        "formats": "; ".join(b.formats),
+                        "pubdate": b.pubdate or "",
+                        "added": b.timestamp or "",
+                        "has_cover": b.has_cover,
+                        "path": b.path,
+                        "identifiers": json.dumps(b.identifiers, ensure_ascii=False)
+                        if b.identifiers
+                        else "",
+                    }
+                )
     else:
         raise ValueError(f"Unknown export format: {fmt!r}")
 

@@ -66,8 +66,7 @@ def register_bundled_fonts() -> bool:
             fontmap.add_font_file(str(path))
         except Exception as exc:
             print(
-                f"hermitage: failed to register {name}: "
-                f"{type(exc).__name__}: {exc}",
+                f"hermitage: failed to register {name}: {type(exc).__name__}: {exc}",
                 file=sys.stderr,
             )
             ok = False

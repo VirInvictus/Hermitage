@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: ruff + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        # PyGObject builds against girepository/cairo and imports the GTK 4
+        # and libadwaita typelibs at test time (gi.require_version for Gtk 4.0,
+        # Adw 1, Gdk 4.0, Pango, PangoCairo). The tests are DB-only and need no
+        # display, so no xvfb is required.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libgirepository1.0-dev \
+            gobject-introspection \
+            gir1.2-gtk-4.0 \
+            gir1.2-adw-1 \
+            libcairo2-dev \
+            pkg-config \
+            python3-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ruff
+        run: pip install ruff==0.15.20
+
+      - name: Install project
+        run: pip install .
+
+      - name: ruff check
+        run: ruff check hermitage/
+
+      - name: ruff format --check
+        run: ruff format --check hermitage/ tests/
+
+      - name: unittest
+        run: python -m unittest discover -s tests

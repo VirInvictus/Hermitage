@@ -46,9 +46,8 @@ class SeriesEntry:
             return f"#{_fmt(first)}"
 
         # Detect a complete contiguous integer run from first to last
-        contiguous = (
-            len(indices) == int(last) - int(first) + 1
-            and all(i == int(i) for i in indices)
+        contiguous = len(indices) == int(last) - int(first) + 1 and all(
+            i == int(i) for i in indices
         )
         suffix = "" if contiguous else " (incomplete)"
         return f"#{_fmt(first)} → #{_fmt(last)}{suffix}"
@@ -89,7 +88,8 @@ class SeriesBrowser(Gtk.Box):
 
         clamp = Adw.Clamp(maximum_size=900, tightening_threshold=700)
         self._content = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL, spacing=18,
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=18,
         )
         self._content.set_margin_start(24)
         self._content.set_margin_end(24)
@@ -117,8 +117,7 @@ class SeriesBrowser(Gtk.Box):
         total_books_in_series = sum(e.count for e in entries)
         subtitle = Gtk.Label(
             label=(
-                f"{len(entries)} series · "
-                f"{total_books_in_series} of {len(books)} books"
+                f"{len(entries)} series · {total_books_in_series} of {len(books)} books"
             ),
             xalign=0,
         )
@@ -148,7 +147,7 @@ class SeriesBrowser(Gtk.Box):
         card.add_css_class("series-card")
         card.set_can_focus(True)
         card.connect("clicked", self._on_card_clicked, entry.name)
-        card.set_tooltip_text(f'Filter library to “{entry.name}”')
+        card.set_tooltip_text(f"Filter library to “{entry.name}”")
 
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         inner.set_margin_start(18)

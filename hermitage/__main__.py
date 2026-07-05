@@ -10,9 +10,11 @@ def main():
 
     # Register bundled fonts before any widget asks Pango for a face.
     from hermitage.typography import register_bundled_fonts
+
     register_bundled_fonts()
 
     from hermitage.app import run
+
     run()
 
 
