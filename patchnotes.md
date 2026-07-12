@@ -1,5 +1,92 @@
 # Hermitage — Patch Notes
 
+## v0.17.0 (2026-07-11) — Hyprland-Native: De-adwaita, Owned Stylesheet, Tiling Ergonomics
+
+Phases 13 and 14 landed together. Brandon's desktop moved from GNOME Shell to
+Hyprland, and Hermitage moved with it: not "runs politely under a tiling
+compositor" but "fully belongs on one." Libadwaita is gone. GTK 4 and PyGObject
+stay (GTK 4 is Wayland-native); what left is the GNOME identity layer, replaced
+by plain GTK 4 widgets and a stylesheet Hermitage owns outright. Following the
+Colophon pilot's proven patterns, translated from Rust to PyGObject. Nothing
+regresses: every surface works the same, and the app still runs under a GNOME
+fallback session. The look stops being GNOME's; the compatibility does not.
+
+---
+
+### New Features
+
+**Owned dark/light theming via the desktop portal.** With `Adw.StyleManager`
+gone, `hermitage/theme.py` is now the single theme-resolution path: it reads
+`org.freedesktop.portal.Settings` directly over D-Bus, maps the system
+preference to an owned Kanagawa Dragon (dark) or Kanagawa Lotus (light)
+palette injected as GTK named colours, and re-applies live when the portal
+reports a change. No new dependency (Gio ships with PyGObject); it degrades to
+the dark default when no portal answers. The palette provider registers just
+above `PRIORITY_USER` so a stray `~/.config/gtk-4.0/gtk.css` can no longer
+half-override the app's own colours.
+
+**Floating overlay sidebars.** The Codex detail pane and the virtual-library
+list are now `Gtk.Revealer` panels stacked over the grid in a `Gtk.Overlay`,
+sliding in over the covers rather than squeezing the grid. On a half or quarter
+Hyprland tile the grid keeps its width instead of collapsing to a sliver. The
+Escape cascade (codex, then search, then sidebar) and Ctrl+L are unchanged.
+
+**Keyboard shortcuts window.** A new owned dialog (Ctrl+? or the primary menu)
+lists every binding: search, virtual libraries, genres, series, insights,
+preferences, quit, and the Escape cascade. Built from the same boxed-list rows
+as Preferences so it matches the owned look rather than importing GNOME's.
+
+**Keyboard triggers for genre and series browsing.** `Ctrl+G` toggles the genre
+browser and `Ctrl+R` the series browser; both were pointer-only before.
+
+**Type-ahead find in the grid.** Typing letters over the Sanctuary jumps
+selection to the first book whose sort title starts with what you typed, with a
+one-second buffer reset mirroring the search debounce. The match logic is a
+pure function (`first_index_with_prefix`) covered by headless tests.
+
+**HiDPI-aware cover thumbnails.** Thumbnails are now generated per display scale
+tier (`thumbs/<scale>/`), sized from the cell's actual `get_scale_factor()` at
+bind time, so a 2x or 3x display (or the integer GTK renders at under Hyprland
+fractional scaling) gets a denser thumbnail instead of an upscaled 1x one. This
+closes the long-open Phase 9 High-DPI audit alongside the fractional-scale item.
+
+**Ctrl+Q quits, and the window wears no title buttons.** The compositor draws
+no titlebar of its own on Hyprland, so window controls are hidden and Ctrl+Q is
+the in-app quit; a GNOME fallback session still closes the window its own way.
+
+### Enhancements
+
+**A true one-column floor.** The grid's density is left to `Gtk.GridView`'s own
+column fitting between one and twelve columns; the `Adw.Breakpoint` machinery is
+gone. A narrow quarter-tile now renders one clean strip of covers instead of two
+crushed ones, and a wide window fills out exactly as before.
+
+### Structural Improvements
+
+**`hermitage/widgets.py`: owned successors to the adwaita widgets.** A
+width-clamping `Clamp` (a real measure/allocate `Gtk.Widget`, since GTK CSS has
+no max-width), a two-line `WindowTitle`, an auto-hiding `ToastOverlay`, a
+centred `StatusPage` (API-compatible with `Adw.StatusPage` so mutating callers
+were untouched), and the boxed-list `value_row` shared by Preferences and the
+Insights audit. Preferences and Insights are now plain `Gtk.Window`s; the
+first-run wizard and About dialog likewise.
+
+**The stylesheet owns its GNOME vocabulary.** `style.css` now defines the
+adwaita style classes it used to inherit (`.card`, `.boxed-list`, `.pill`,
+`.title-*`, `.dim-label`, `.suggested-action`, and friends) plus the new widget
+classes. Deliberately flat but not squared off: Hermitage keeps its rounded,
+immersive identity (rounded cover cells, pill tags, the blurred hero), because
+the spec's "curated, not utilitarian" mandate governs over a generic flat look.
+
+**Regression guards.** New headless tests assert the package imports no
+libadwaita, reads no GNOME-only `Gio.Settings`, and keeps `APP_ID` in lockstep
+with the `.desktop` `StartupWMClass` (so a Hyprland `windowrulev2` keeps
+matching after any rename). The suite grew from 63 to 75 tests. CI drops
+`libadwaita-devel`; the Flatpak stays on the GNOME runtime (that is where GTK 4
+and PyGObject come from) and simply stops importing `Adw`.
+
+---
+
 ## v0.16.0 (2026-07-04) — Audit Sweep: Bugfixes, Test Suite, Lint Hygiene
 
 ---

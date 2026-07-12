@@ -15,7 +15,7 @@
 
 # Hermitage
 
-A visually immersive, local-first media sanctuary for Calibre libraries. Native GTK 4 / Libadwaita application built for GNOME 50+, designed to make browsing a 4,000+ item library feel like walking through a curated gallery.
+A visually immersive, local-first media sanctuary for Calibre libraries. Native GTK 4 application, Hyprland-native and equally at home under GNOME, designed to make browsing a 4,000+ item library feel like walking through a curated gallery.
 
 ## Why this exists
 
@@ -71,15 +71,14 @@ pip install PyGObject Pillow PyYAML
 **System libraries:**
 
 - GTK 4.22+
-- Libadwaita 1.7+
 - GObject Introspection
 
 ```bash
 # Fedora 43+
-sudo dnf install gtk4 libadwaita python3-gobject
+sudo dnf install gtk4 python3-gobject
 
 # Arch
-sudo pacman -S gtk4 libadwaita python-gobject
+sudo pacman -S gtk4 python-gobject
 ```
 
 ## Usage
@@ -147,26 +146,28 @@ Standalone CLI tool that validates every book's directory path, cover file integ
 
 ```
 hermitage/
-  __init__.py       # Version (0.8.0)
+  __init__.py       # Version single-source (__version__)
   __main__.py       # Entry point + SIGINT handler
-  app.py            # Adw.Application, GridView, dual OverlaySplitViews, sorting, search
+  app.py            # Gtk.Application, GridView, overlay-revealer sidebars, sorting, search, type-ahead
+  widgets.py        # Owned GTK widgets: Clamp, WindowTitle, ToastOverlay, StatusPage, boxed-list rows
+  theme.py          # Single theme path: portal dark/light + Kanagawa Dragon palette
   codex.py          # Detail sidebar: hero blur, clickable metadata, synopsis, Read button
   config.py         # YAML config load/save (~/.config/hermitage/config.yaml)
   genres.py         # Genre browser: recursive tag hierarchy with cards and pills
-  preferences.py    # Adw.PreferencesWindow for in-app settings
+  preferences.py    # Plain Gtk.Window preferences (boxed-list, dropdown, switch)
   search.py         # Recursive descent parser for Calibre search query language
   wizard.py         # First-run setup wizard with Calibre folder picker
   database.py       # Read-only Calibre metadata.db parser, virtual library loader
-  thumbnailer.py    # Thumbnail disk cache + 512-entry in-memory texture LRU
+  thumbnailer.py    # Per-scale thumbnail disk cache + 512-entry in-memory texture LRU
   colors.py         # Median-cut color quantization, vibrancy sorting, three-tier cache
   verify.py         # CLI library integrity checker
-  style.css         # Application stylesheet (grid, codex, genre browser)
+  style.css         # Owned application stylesheet (grid, codex, adwaita-class successors)
 ```
 
 ## Stack
 
 - **Python 3.14** -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
-- **GTK 4.22** / **Libadwaita 1.7** -- `Adw.ToolbarView`, `Adw.OverlaySplitView`, `Adw.Breakpoint`, `Adw.Clamp`, `Adw.PreferencesWindow`
+- **GTK 4.22** (no libadwaita) -- plain GTK 4 with an owned stylesheet, Hyprland-native; overlay `Gtk.Revealer` sidebars, a width-clamping widget, and portal-based follow-system dark/light in place of the adwaita equivalents
 - **SQLite3** in `mode=ro` -- immutable read-only access to Calibre's database
 - **Pillow** -- thumbnailing (LANCZOS), hero blur (GaussianBlur r30), color quantization (median-cut)
 - **PyYAML** -- config file at `~/.config/hermitage/config.yaml`

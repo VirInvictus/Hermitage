@@ -7,15 +7,14 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Gtk, Pango
 
 
-class SetupWizard(Adw.Window):
+class SetupWizard(Gtk.Window):
     """First-run wizard that asks the user to pick their Calibre library."""
 
-    def __init__(self, app: Adw.Application):
+    def __init__(self, app: Gtk.Application):
         super().__init__(
             application=app,
             title="Welcome to Hermitage",
@@ -27,9 +26,6 @@ class SetupWizard(Adw.Window):
         self._build_ui()
 
     def _build_ui(self):
-        toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
-
         content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=16,
@@ -97,8 +93,8 @@ class SetupWizard(Adw.Window):
         self._error_label.set_visible(False)
         content.append(self._error_label)
 
-        toolbar.set_content(content)
-        self.set_content(toolbar)
+        self.set_titlebar(Gtk.HeaderBar())
+        self.set_child(content)
 
         self._selected_path: Path | None = None
 

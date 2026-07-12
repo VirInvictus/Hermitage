@@ -5,10 +5,10 @@ from __future__ import annotations
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Gtk, Pango
 
+from hermitage import widgets
 from hermitage.database import Book
 
 
@@ -66,7 +66,7 @@ class GenreBrowser(Gtk.Box):
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        self._clamp = Adw.Clamp(maximum_size=800, tightening_threshold=600)
+        self._clamp = widgets.Clamp(maximum_size=800)
         self._content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=24,

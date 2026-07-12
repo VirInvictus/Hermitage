@@ -15,10 +15,10 @@ from dataclasses import dataclass
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Gtk, Pango
 
+from hermitage import widgets
 from hermitage.database import Book
 
 
@@ -86,7 +86,7 @@ class SeriesBrowser(Gtk.Box):
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        clamp = Adw.Clamp(maximum_size=900, tightening_threshold=700)
+        clamp = widgets.Clamp(maximum_size=900)
         self._content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=18,
@@ -126,7 +126,7 @@ class SeriesBrowser(Gtk.Box):
         self._content.append(subtitle)
 
         if not entries:
-            empty = Adw.StatusPage(
+            empty = widgets.StatusPage(
                 title="No series in this library",
                 description=(
                     "Calibre series metadata is empty — "

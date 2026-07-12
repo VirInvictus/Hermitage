@@ -85,6 +85,18 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="0.17.0" date="2026-07-11">
+      <description>
+        <p>Hyprland-native redesign: libadwaita is dropped in favour of plain
+           GTK 4 and a stylesheet Hermitage owns outright, themed Kanagawa
+           Dragon and still following the system light/dark preference through
+           the desktop portal. The Codex and virtual-library sidebars now float
+           over the grid, the window wears no title buttons (Ctrl+Q quits), a
+           quarter-tile drops to a clean single column, and a new keyboard
+           shortcuts window, grid type-ahead find, and HiDPI-aware cover
+           thumbnails round out the tiling ergonomics.</p>
+      </description>
+    </release>
     <release version="0.16.0" date="2026-07-04">
       <description>
         <p>Audit sweep: a 63-test unit suite, clean lint, and a round of

@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Hermitage is a Python 3.14 / GTK 4.22 / Libadwaita 1.7 desktop app that reads a Calibre `metadata.db` **read-only** and renders the library as a cover-art grid with a sliding detail pane ("Codex") and tag-tree genre browser. It is single-user and 100% local — no network, no accounts, no telemetry. Read `spec.md` and `roadmap.md` for the design intent and what's done vs. planned.
+Hermitage is a Python 3.14 / GTK 4 desktop app that reads a Calibre `metadata.db` **read-only** and renders the library as a cover-art grid with a sliding detail pane ("Codex") and tag-tree genre browser. It is single-user and 100% local — no network, no accounts, no telemetry. Read `spec.md` and `roadmap.md` for the design intent and what's done vs. planned.
+
+**No libadwaita (as of v0.17.0, Phases 13/14).** Hermitage is Hyprland-native: plain GTK 4 + PyGObject, a stylesheet it owns (`style.css` + the Kanagawa Dragon palette in `theme.py`), and portal-based follow-system dark/light. The owned successors to the adwaita widgets live in `hermitage/widgets.py` (`Clamp`, `WindowTitle`, `ToastOverlay`, `StatusPage`, `value_row`/`boxed_list`). Don't reintroduce `Adw` — a guard test (`tests/test_guards.py`) fails if you do. See spec.md §2a for the design language.
 
 ## Run / verify
 
@@ -22,7 +24,7 @@ hermitage-verify   # integrity check + path-resolution benchmark, exits non-zero
 
 The test suite lives in `tests/` (63 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
 
-System deps on Fedora: `gtk4`, `libadwaita`, `python3-gobject` (already installed). PyPI deps: `PyGObject`, `Pillow`, `PyYAML` (declared in `pyproject.toml`).
+System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML` (declared in `pyproject.toml`).
 
 ## Hard constraints
 
@@ -34,16 +36,22 @@ System deps on Fedora: `gtk4`, `libadwaita`, `python3-gobject` (already installe
 
 Entry point chain: `__main__.main` (installs SIGINT handler) → `app.run` → `HermitageApp.do_activate`. If no config and no `HERMITAGE_DB`, the wizard runs first; otherwise `_build_window` shows a "Loading…" status page and `GLib.idle_add`s `_load_library`, which calls `database.load_library()` (a single joined SQL query, sorted by `b.sort COLLATE NOCASE`) and then assembles the UI.
 
-The window is a **nested split-view stack** (`app._build_layout`):
+The window is a **titlebar + overlay stack** (`app._build_chrome` / `_build_layout`). The two sidebars are `Gtk.Revealer` panels floated over the grid (they slide in over the covers, not pushing the grid), and the search bar sits in a column below the titlebar:
 
 ```
-Adw.ToolbarView
-└─ Adw.OverlaySplitView (vl_split, START sidebar = virtual libraries)
-   └─ Adw.OverlaySplitView (codex_split, END sidebar = CodexView)
-      └─ Gtk.Stack
-         ├─ ScrolledWindow → Gtk.GridView (the Sanctuary)
-         └─ GenreBrowser
+Gtk.ApplicationWindow
+├─ titlebar = Gtk.HeaderBar (show-title-buttons off; Ctrl+Q quits)
+└─ widgets.ToastOverlay
+   └─ Gtk.Box (vertical)
+      ├─ Gtk.SearchBar
+      └─ Gtk.Overlay (main content)
+         ├─ child   = Gtk.Stack (grid / genres / series / no-results)
+         │            └─ ScrolledWindow → Gtk.GridView (the Sanctuary)
+         ├─ overlay = Gtk.Revealer (START, vl_revealer = virtual libraries)
+         └─ overlay = Gtk.Revealer (END, codex_revealer = CodexView)
 ```
+
+Grid column density is `Gtk.GridView`'s own fitting between `min_columns=1` and `max_columns=12` (no `Adw.Breakpoint`). Dark/light and the palette come from `theme.init()` (the single theme path).
 
 The grid uses `Gio.ListStore[BookObject]` → `Gtk.FilterListModel` (with a `Gtk.CustomFilter` that the search wires up) → `Gtk.SingleSelection` → `Gtk.GridView`. `BookObject` is a thin `GObject.Object` wrapper because `Gio.ListStore` cannot hold plain dataclasses. Sorting is done by **rebuilding** the `ListStore` (`_resort_grid`), not by a `Gtk.Sorter`, because the same store also feeds the filter model.
 

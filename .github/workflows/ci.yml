@@ -24,7 +24,6 @@ jobs:
             glib2-devel \
             gobject-introspection-devel \
             gtk4-devel \
-            libadwaita-devel \
             cairo-devel \
             cairo-gobject-devel \
             pkgconf-pkg-config

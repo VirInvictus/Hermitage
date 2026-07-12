@@ -11,10 +11,10 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
+from hermitage import widgets
 from hermitage.database import Book, library_root
 from hermitage.thumbnailer import get_cached_texture, request_texture
 
@@ -248,7 +248,7 @@ class CodexView(Gtk.Box):
         content.append(self._hero)
 
         # ---- Body (below hero) ----
-        body = Adw.Clamp(maximum_size=600, tightening_threshold=400)
+        body = widgets.Clamp(maximum_size=600)
         body_inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         body_inner.set_margin_start(24)
         body_inner.set_margin_end(24)
@@ -468,7 +468,8 @@ class CodexView(Gtk.Box):
 
     def _load_hero_cover(self, book: Book, cover: Path):
         """Set the mini cover in the hero from the thumbnail cache."""
-        tex = get_cached_texture(cover)
+        scale = self._hero_cover.get_scale_factor()
+        tex = get_cached_texture(cover, scale)
         if tex:
             self._hero_cover.set_paintable(tex)
             return
@@ -480,7 +481,7 @@ class CodexView(Gtk.Box):
             if self._current_book and self._current_book.id == book_id and texture:
                 self._hero_cover.set_paintable(texture)
 
-        request_texture(cover, _on_tex)
+        request_texture(cover, _on_tex, scale)
 
     def _load_hero_blur(self, book: Book, cover: Path):
         """Generate and display the blurred hero background asynchronously."""

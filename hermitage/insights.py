@@ -1,6 +1,6 @@
 """Library Insights — at-a-glance stats and audit for the loaded library.
 
-A standalone `Adw.Window` opened from the hamburger menu. Operates entirely
+A standalone `Gtk.Window` opened from the hamburger menu. Operates entirely
 on the in-memory `list[Book]` Hermitage already has — no extra DB query, no
 background work. Aggregations are computed once at construction and rendered
 into a scrollable column.
@@ -14,10 +14,10 @@ from dataclasses import dataclass
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Gtk, Pango
 
+from hermitage import widgets
 from hermitage.database import Book
 
 
@@ -113,7 +113,7 @@ def summarize(books: list[Book]) -> LibrarySummary:
 # ---------------------------------------------------------------------------
 
 
-class InsightsWindow(Adw.Window):
+class InsightsWindow(Gtk.Window):
     """Library Insights — at-a-glance + top-N + audit."""
 
     def __init__(self, parent: Gtk.Window, books: list[Book]):
@@ -129,13 +129,10 @@ class InsightsWindow(Adw.Window):
         self._build_ui()
 
     def _build_ui(self):
-        toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
-
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        clamp = Adw.Clamp(maximum_size=720, tightening_threshold=620)
+        clamp = widgets.Clamp(maximum_size=720)
         column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
         column.set_margin_start(24)
         column.set_margin_end(24)
@@ -158,8 +155,8 @@ class InsightsWindow(Adw.Window):
 
         clamp.set_child(column)
         scrolled.set_child(clamp)
-        toolbar.set_content(scrolled)
-        self.set_content(toolbar)
+        self.set_titlebar(Gtk.HeaderBar())
+        self.set_child(scrolled)
 
     # ------------------------------------------------------------------
 
@@ -303,22 +300,18 @@ class InsightsWindow(Adw.Window):
         icon_name: str,
         total: int,
     ) -> Gtk.Widget:
-        row = Adw.ActionRow()
-        row.set_title(title)
         n = len(sample)
         pct = (n * 100) // total if total else 0
         if n == 0:
-            row.set_subtitle("0 books — clean")
+            subtitle = "0 books — clean"
         else:
             preview = ", ".join(b.title for b in sample[:3])
             if n > 3:
                 preview += f", +{n - 3:,} more"
-            row.set_subtitle(f"{n:,} books ({pct}%) — {preview}")
+            subtitle = f"{n:,} books ({pct}%) — {preview}"
 
-        # Adwaita ActionRow accepts a prefix widget for the icon
         img = Gtk.Image.new_from_icon_name(icon_name)
-        row.add_prefix(img)
-        return row
+        return widgets.value_row(title, subtitle, prefix=img)
 
     # ------------------------------------------------------------------
 

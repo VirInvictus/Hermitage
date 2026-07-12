@@ -8,10 +8,10 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
+from hermitage import theme, widgets
 from hermitage.codex import CodexView
 from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
 from hermitage.database import Book, load_library, load_virtual_libraries
@@ -19,7 +19,12 @@ from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
 from hermitage.search import filter_books
 from hermitage.series import SeriesBrowser
-from hermitage.thumbnailer import get_cached_texture, request_texture, warm_cache
+from hermitage.thumbnailer import (
+    get_cached_texture,
+    request_texture,
+    set_default_scale,
+    warm_cache,
+)
 
 APP_ID = "io.github.virinvictus.hermitage"
 
@@ -83,7 +88,7 @@ def _apply_color_css(
     Gtk.StyleContext.add_provider_for_display(
         overlay.get_display(),
         provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        Gtk.STYLE_PROVIDER_PRIORITY_USER + 2,
     )
     overlay._color_provider = provider
     overlay._glow_class = cls
@@ -121,7 +126,7 @@ def _apply_placeholder_css(placeholder: Gtk.Box, book_id: int):
     Gtk.StyleContext.add_provider_for_display(
         placeholder.get_display(),
         provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        Gtk.STYLE_PROVIDER_PRIORITY_USER + 2,
     )
     placeholder._ph_provider = provider
 
@@ -270,7 +275,10 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
         return
 
     # --- Texture ---
-    texture = get_cached_texture(cover)
+    # Cache per the cell's actual display scale so HiDPI / fractional-scale
+    # tiles get a denser thumbnail rather than an upscaled 1x one.
+    scale = picture.get_scale_factor()
+    texture = get_cached_texture(cover, scale)
     if texture is not None:
         picture.set_paintable(texture)
         stack.set_visible_child_name("cover")
@@ -288,7 +296,7 @@ def _bind_cover(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem):
                 stack.set_visible_child_name("cover")
             # If tex is None the placeholder we already swapped to stays put.
 
-        request_texture(cover, _on_texture_ready)
+        request_texture(cover, _on_texture_ready, scale)
 
     # --- Dynamic color ---
     colors = get_cached_colors(book.id)
@@ -381,18 +389,38 @@ def _sort_books(books: list[BookObject], field: str, ascending: bool):
     )
 
 
+def first_index_with_prefix(sort_titles: list[str], prefix: str) -> int | None:
+    """Index of the first title whose casefolded sort key starts with *prefix*.
+
+    Pure helper for the grid type-ahead find — kept free of any GTK state so it
+    can be unit-tested headlessly. Returns None when the prefix is empty or no
+    title matches.
+    """
+    if not prefix:
+        return None
+    needle = prefix.casefold()
+    for i, title in enumerate(sort_titles):
+        if title.casefold().startswith(needle):
+            return i
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
 
 
-class HermitageApp(Adw.Application):
+class HermitageApp(Gtk.Application):
     """Main application object."""
 
     def __init__(self):
         super().__init__(
             application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS
         )
+
+        quit_action = Gio.SimpleAction(name="quit")
+        quit_action.connect("activate", lambda *_a: self.quit())
+        self.add_action(quit_action)
 
         prefs_action = Gio.SimpleAction(name="preferences")
         prefs_action.connect("activate", self._on_preferences)
@@ -405,6 +433,18 @@ class HermitageApp(Adw.Application):
         insights_action = Gio.SimpleAction(name="insights")
         insights_action.connect("activate", self._on_insights)
         self.add_action(insights_action)
+
+        shortcuts_action = Gio.SimpleAction(name="shortcuts")
+        shortcuts_action.connect("activate", self._on_shortcuts)
+        self.add_action(shortcuts_action)
+
+        toggle_genres_action = Gio.SimpleAction(name="toggle-genres")
+        toggle_genres_action.connect("activate", self._on_toggle_genres)
+        self.add_action(toggle_genres_action)
+
+        toggle_series_action = Gio.SimpleAction(name="toggle-series")
+        toggle_series_action.connect("activate", self._on_toggle_series)
+        self.add_action(toggle_series_action)
 
         export_action = Gio.SimpleAction(name="export-library")
         export_action.connect("activate", self._on_export)
@@ -432,6 +472,10 @@ class HermitageApp(Adw.Application):
         # Ctrl+F / Ctrl+L live in _setup_shortcuts).
         self.set_accels_for_action("app.preferences", ["<Control>comma"])
         self.set_accels_for_action("app.insights", ["<Control>i"])
+        self.set_accels_for_action("app.quit", ["<Control>q"])
+        self.set_accels_for_action("app.shortcuts", ["<Control>question"])
+        self.set_accels_for_action("app.toggle-genres", ["<Control>g"])
+        self.set_accels_for_action("app.toggle-series", ["<Control>r"])
 
     def _on_sort_field_action(self, action, param):
         field = param.get_string()
@@ -492,6 +536,69 @@ class HermitageApp(Adw.Application):
 
         InsightsWindow(win, win._books).present()
 
+    def _on_toggle_genres(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, "_genre_btn"):
+            win._genre_btn.set_active(not win._genre_btn.get_active())
+
+    def _on_toggle_series(self, action, param):
+        win = self.props.active_window
+        if win and hasattr(win, "_series_btn"):
+            win._series_btn.set_active(not win._series_btn.get_active())
+
+    def _on_shortcuts(self, action, param):
+        """Owned keyboard-shortcuts dialog (plain GTK, matching our look)."""
+        win = self.props.active_window
+
+        dlg = Gtk.Window(
+            transient_for=win,
+            modal=True,
+            title="Keyboard Shortcuts",
+            default_width=440,
+            default_height=520,
+        )
+        dlg.set_titlebar(Gtk.HeaderBar())
+
+        key = Gtk.EventControllerKey()
+        key.connect(
+            "key-pressed",
+            lambda c, kv, kc, s: (
+                (dlg.close() or True) if kv == Gdk.KEY_Escape else False
+            ),
+        )
+        dlg.add_controller(key)
+
+        scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        clamp = widgets.Clamp(maximum_size=560)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        box.set_margin_top(24)
+        box.set_margin_bottom(24)
+
+        shortcut_list = widgets.boxed_list()
+        for label, accel in [
+            ("Search", "Ctrl+F"),
+            ("Virtual libraries", "Ctrl+L"),
+            ("Browse genres", "Ctrl+G"),
+            ("Browse series", "Ctrl+R"),
+            ("Library insights", "Ctrl+I"),
+            ("Preferences", "Ctrl+,"),
+            ("Keyboard shortcuts", "Ctrl+?"),
+            ("Quit", "Ctrl+Q"),
+            ("Dismiss codex, then search, then sidebar", "Esc"),
+        ]:
+            kbd = Gtk.Label(label=accel, valign=Gtk.Align.CENTER)
+            kbd.add_css_class("shortcut-accel")
+            shortcut_list.append(widgets.value_row(label, suffix=kbd))
+        box.append(shortcut_list)
+
+        clamp.set_child(box)
+        scrolled.set_child(clamp)
+        dlg.set_child(scrolled)
+        dlg.present()
+
     def _on_export(self, action, param):
         win = self.props.active_window
         if not win or not hasattr(win, "_books"):
@@ -530,15 +637,11 @@ class HermitageApp(Adw.Application):
                 count = export_books(win._books, path)
             except Exception as exc:
                 win._toast_overlay.add_toast(
-                    Adw.Toast.new(
-                        f"Export failed: {type(exc).__name__}: {exc}",
-                    )
+                    f"Export failed: {type(exc).__name__}: {exc}",
                 )
                 return
             win._toast_overlay.add_toast(
-                Adw.Toast.new(
-                    f"Exported {count:,} books → {path.name} ({detect_format(path).upper()})",
-                )
+                f"Exported {count:,} books → {path.name} ({detect_format(path).upper()})",
             )
 
         dialog.save(win, None, _on_save_done)
@@ -556,24 +659,27 @@ class HermitageApp(Adw.Application):
             # Running from a source checkout without an installed dist.
             from hermitage import __version__ as ver
 
-        about = Adw.AboutDialog(
-            application_name="Hermitage",
-            application_icon=APP_ID,
-            developer_name="Brandon LaRocque",
+        about = Gtk.AboutDialog(
+            transient_for=win,
+            modal=True,
+            program_name="Hermitage",
+            logo_icon_name=APP_ID,
             version=ver,
             comments=(
                 "A visually immersive, local-first media sanctuary "
                 "for Calibre libraries."
             ),
             website="https://github.com/VirInvictus/Hermitage",
-            issue_url="https://github.com/VirInvictus/Hermitage/issues",
+            website_label="Source & issues",
             license_type=Gtk.License.GPL_3_0,
             copyright="© 2026 Brandon LaRocque",
-            developers=["Brandon LaRocque"],
+            authors=["Brandon LaRocque"],
         )
-        about.present(win)
+        about.present()
 
     def do_activate(self):
+        theme.init()
+
         win = self.props.active_window
         if win:
             win.present()
@@ -591,26 +697,23 @@ class HermitageApp(Adw.Application):
 
     # -- window construction ------------------------------------------------
 
-    def _build_window(self) -> Adw.ApplicationWindow:
-        win = Adw.ApplicationWindow(application=self)
+    def _build_window(self) -> Gtk.ApplicationWindow:
+        win = Gtk.ApplicationWindow(application=self)
         win.set_title("Hermitage")
         win.set_default_size(1200, 800)
 
         self._load_css()
+        # Builds the titlebar + search bar and installs the ToastOverlay as the
+        # window child (win._toast_overlay).
         self._build_chrome(win)
         self._setup_shortcuts(win)
 
         # Codex detail view (created before library loads)
         win._codex = CodexView()
 
-        # Toast overlay wraps the main content so any module can pop a
-        # transient notification without plumbing it through every widget.
-        win._toast_overlay = Adw.ToastOverlay()
-        win._toolbar_view.set_content(win._toast_overlay)
-
         # Loading state — spinner inside the StatusPage so users see motion
         # while the SQL query runs and the first chrome paints.
-        status = Adw.StatusPage(
+        status = widgets.StatusPage(
             title="Loading library",
             description="Reading metadata.db…",
             icon_name="library-symbolic",
@@ -626,23 +729,32 @@ class HermitageApp(Adw.Application):
 
     @staticmethod
     def _load_css():
-        """Load the application stylesheet."""
+        """Load the application stylesheet.
+
+        Registered above PRIORITY_USER (800) for the same reason theme.py's
+        palette provider is: a user ~/.config/gtk-4.0/gtk.css loads at USER and
+        would otherwise outrank an APPLICATION-priority sheet.
+        """
         css_provider = Gtk.CssProvider()
         css_provider.load_from_file(Gio.File.new_for_path(str(_CSS_PATH)))
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            Gtk.STYLE_PROVIDER_PRIORITY_USER + 1,
         )
 
     @staticmethod
-    def _build_chrome(win: Adw.ApplicationWindow):
-        """Build the header bar, search bar, and toolbar view shell."""
-        toolbar_view = Adw.ToolbarView()
+    def _build_chrome(win: Gtk.ApplicationWindow):
+        """Build the header bar (as the window titlebar), search bar, and the
+        ToastOverlay that hosts the main content.
 
-        # Header bar
-        header = Adw.HeaderBar()
-        win._title_widget = Adw.WindowTitle(title="Hermitage", subtitle="")
+        Window buttons are hidden \u2014 the compositor draws no titlebar of its own
+        (Hyprland-native); Ctrl+Q quits.
+        """
+        # Header bar, installed as the real titlebar.
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(False)
+        win._title_widget = widgets.WindowTitle(title="Hermitage", subtitle="")
         header.set_title_widget(win._title_widget)
 
         win._vl_btn = Gtk.ToggleButton(icon_name="view-list-symbolic")
@@ -661,9 +773,8 @@ class HermitageApp(Adw.Application):
         win._series_btn.set_tooltip_text("Browse series")
         header.pack_start(win._series_btn)
 
-        toolbar_view.add_top_bar(header)
-
-        # Search bar (slides below header)
+        # Search bar \u2014 kept in a field; placed into the content column below the
+        # titlebar in _build_layout (it slides open on its own).
         search_bar = Gtk.SearchBar()
         search_bar.set_show_close_button(True)
 
@@ -674,8 +785,7 @@ class HermitageApp(Adw.Application):
         win._search_entry.set_hexpand(True)
         win._search_entry.set_size_request(300, -1)
 
-        entry_clamp = Adw.Clamp(maximum_size=600)
-        entry_clamp.set_child(win._search_entry)
+        entry_clamp = widgets.Clamp(maximum_size=600, child=win._search_entry)
         search_bar.set_child(entry_clamp)
         search_bar.connect_entry(win._search_entry)
 
@@ -685,7 +795,7 @@ class HermitageApp(Adw.Application):
             "search-mode-enabled",
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
-        toolbar_view.add_top_bar(search_bar)
+        win._search_bar = search_bar
 
         # Sort menu button (right side)
         sort_menu = Gio.Menu()
@@ -723,14 +833,19 @@ class HermitageApp(Adw.Application):
         menu.append("Library Insights", "app.insights")
         menu.append("Export Library…", "app.export-library")
         menu.append("Preferences", "app.preferences")
+        menu.append("Keyboard Shortcuts", "app.shortcuts")
         menu.append("About Hermitage", "app.about")
         menu_btn.set_menu_model(menu)
         header.pack_end(menu_btn)
 
-        win._toolbar_view = toolbar_view
-        win.set_content(toolbar_view)
+        win.set_titlebar(header)
 
-    def _setup_shortcuts(self, win: Adw.ApplicationWindow):
+        # ToastOverlay wraps the main content so any module can pop a transient
+        # notification without plumbing it through every widget.
+        win._toast_overlay = widgets.ToastOverlay()
+        win.set_child(win._toast_overlay)
+
+    def _setup_shortcuts(self, win: Gtk.ApplicationWindow):
         """Register keyboard shortcuts."""
         ctrl = Gtk.ShortcutController()
         ctrl.set_scope(Gtk.ShortcutScope.MANAGED)
@@ -767,8 +882,11 @@ class HermitageApp(Adw.Application):
 
         # Escape — close codex, then search, then VL sidebar
         def _on_escape(*_args):
-            if hasattr(win, "_split") and win._split.get_show_sidebar():
-                win._split.set_show_sidebar(False)
+            if (
+                hasattr(win, "_codex_revealer")
+                and win._codex_revealer.get_reveal_child()
+            ):
+                win._codex_revealer.set_reveal_child(False)
                 return True
             if win._search_btn.get_active():
                 win._search_btn.set_active(False)
@@ -790,13 +908,13 @@ class HermitageApp(Adw.Application):
 
     # -- library loading ----------------------------------------------------
 
-    def _load_library(self, win: Adw.ApplicationWindow) -> bool:
+    def _load_library(self, win: Gtk.ApplicationWindow) -> bool:
         """Load the Calibre database and build the full UI."""
         try:
             books = load_library()
         except FileNotFoundError as exc:
             win._toast_overlay.set_child(
-                Adw.StatusPage(
+                widgets.StatusPage(
                     title="Library Not Found",
                     description=str(exc),
                     icon_name="dialog-error-symbolic",
@@ -811,13 +929,14 @@ class HermitageApp(Adw.Application):
         self._wire_search(win)
 
         win._title_widget.set_subtitle(f"{len(books)} books")
-        self._setup_breakpoints(win, grid)
 
         # Pre-generate thumbnails and extract colors in background threads.
         # Show warming progress in the title subtitle until it hits 100%.
         covers = [
             b.cover_path for b in books if b.cover_path and b.cover_path.is_file()
         ]
+        # Warm the cache at the window's current scale tier.
+        set_default_scale(win.get_scale_factor())
 
         def _on_warm_progress(done: int, total: int):
             if not win._search_entry.get_text().strip():
@@ -837,7 +956,7 @@ class HermitageApp(Adw.Application):
 
     def _build_grid(
         self,
-        win: Adw.ApplicationWindow,
+        win: Gtk.ApplicationWindow,
         books: list[Book],
     ) -> Gtk.GridView:
         """Create the grid view with a filtered list model."""
@@ -857,15 +976,68 @@ class HermitageApp(Adw.Application):
         selection = Gtk.SingleSelection(model=win._filtered_model)
 
         grid = Gtk.GridView(model=selection, factory=_create_cover_factory())
-        grid.set_min_columns(3)
+        # A true one-column floor: a quarter-tile renders one clean strip of
+        # covers rather than two crushed ones. GridView fits as many columns
+        # as the width allows between these bounds, so no Adw.Breakpoint is
+        # needed to scale density (Phase 13/14).
+        grid.set_min_columns(1)
         grid.set_max_columns(12)
         grid.add_css_class("sanctuary-grid")
         grid.connect("activate", self._on_book_activated, win)
 
         return grid
 
-    def _build_layout(self, win: Adw.ApplicationWindow, grid: Gtk.GridView):
+    @staticmethod
+    def _wire_typeahead(win: Gtk.ApplicationWindow, grid: Gtk.GridView):
+        """Type-ahead find: typing letters over the grid jumps to the first
+        book whose sort title starts with what you typed. The buffer resets
+        ~1s after the last keystroke, mirroring the search-entry debounce.
+        """
+        win._typeahead = ""
+        win._typeahead_id = 0
+
+        def _reset():
+            win._typeahead = ""
+            win._typeahead_id = 0
+            return GLib.SOURCE_REMOVE
+
+        def _on_key(controller, keyval, keycode, state):
+            # Leave input to the search bar when it's open, and ignore chords.
+            if win._search_btn.get_active():
+                return False
+            if state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+                return False
+            unicode_point = Gdk.keyval_to_unicode(keyval)
+            if unicode_point == 0:
+                return False
+            char = chr(unicode_point)
+            if not char.isprintable() or (char.isspace() and not win._typeahead):
+                return False
+
+            win._typeahead += char
+            if win._typeahead_id:
+                GLib.source_remove(win._typeahead_id)
+            win._typeahead_id = GLib.timeout_add(1000, _reset)
+
+            model = win._filtered_model
+            titles = [model.get_item(i).book.sort for i in range(model.get_n_items())]
+            idx = first_index_with_prefix(titles, win._typeahead)
+            if idx is not None:
+                grid.scroll_to(
+                    idx,
+                    Gtk.ListScrollFlags.SELECT | Gtk.ListScrollFlags.FOCUS,
+                    None,
+                )
+            return True
+
+        ctrl = Gtk.EventControllerKey()
+        ctrl.connect("key-pressed", _on_key)
+        grid.add_controller(ctrl)
+
+    def _build_layout(self, win: Gtk.ApplicationWindow, grid: Gtk.GridView):
         """Assemble the nested split-view layout."""
+        self._wire_typeahead(win, grid)
+
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         scrolled.set_child(grid)
         win._scrolled = scrolled
@@ -879,7 +1051,7 @@ class HermitageApp(Adw.Application):
         win._series_browser.populate(win._books)
 
         # Empty-search-result state
-        win._no_results = Adw.StatusPage(
+        win._no_results = widgets.StatusPage(
             title="No matches",
             description="Try a broader search or clear the query.",
             icon_name="system-search-symbolic",
@@ -926,16 +1098,27 @@ class HermitageApp(Adw.Application):
         win._genre_btn.connect("toggled", _on_genre_toggled)
         win._series_btn.connect("toggled", _on_series_toggled)
 
-        # Right sidebar: codex detail view
-        codex_split = Adw.OverlaySplitView()
-        codex_split.set_content(stack)
-        codex_split.set_sidebar(win._codex)
-        codex_split.set_sidebar_position(Gtk.PackType.END)
-        codex_split.set_min_sidebar_width(360)
-        codex_split.set_max_sidebar_width(460)
-        codex_split.set_show_sidebar(False)
-        win._split = codex_split
-        win._codex.on_dismiss = lambda: codex_split.set_show_sidebar(False)
+        # Main content overlay — the grid/browser stack at the base, with the
+        # Codex and virtual-library panels floated over it (they slide in over
+        # the grid rather than squeezing it, so a narrow Hyprland tile never
+        # crushes the covers).
+        main_overlay = Gtk.Overlay()
+        main_overlay.set_child(stack)
+
+        # Right panel: Codex detail view
+        win._codex.add_css_class("codex-panel")
+        win._codex.set_size_request(400, -1)
+        codex_revealer = Gtk.Revealer()
+        codex_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT)
+        codex_revealer.set_transition_duration(250)
+        codex_revealer.set_halign(Gtk.Align.END)
+        codex_revealer.set_valign(Gtk.Align.FILL)
+        codex_revealer.set_child(win._codex)
+        codex_revealer.set_reveal_child(False)
+        main_overlay.add_overlay(codex_revealer)
+        main_overlay.set_measure_overlay(codex_revealer, False)
+        win._codex_revealer = codex_revealer
+        win._codex.on_dismiss = lambda: codex_revealer.set_reveal_child(False)
 
         def _codex_search(query: str):
             win._search_entry.set_text(query)
@@ -986,24 +1169,33 @@ class HermitageApp(Adw.Application):
         win._vl_resolver = _vl_resolver
 
         vl_sidebar = self._build_vl_sidebar(win)
-        vl_split = Adw.OverlaySplitView()
-        vl_split.set_content(codex_split)
-        vl_split.set_sidebar(vl_sidebar)
-        vl_split.set_sidebar_position(Gtk.PackType.START)
-        vl_split.set_min_sidebar_width(200)
-        vl_split.set_max_sidebar_width(260)
-        vl_split.set_show_sidebar(False)
+        vl_sidebar.add_css_class("sidebar-panel")
+        vl_sidebar.set_size_request(220, -1)
+        vl_revealer = Gtk.Revealer()
+        vl_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        vl_revealer.set_transition_duration(250)
+        vl_revealer.set_halign(Gtk.Align.START)
+        vl_revealer.set_valign(Gtk.Align.FILL)
+        vl_revealer.set_child(vl_sidebar)
+        vl_revealer.set_reveal_child(False)
+        main_overlay.add_overlay(vl_revealer)
+        main_overlay.set_measure_overlay(vl_revealer, False)
 
         win._vl_btn.bind_property(
             "active",
-            vl_split,
-            "show-sidebar",
+            vl_revealer,
+            "reveal-child",
             GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE,
         )
 
-        win._toast_overlay.set_child(vl_split)
+        # Content column: search bar above the main overlay, all under the
+        # toast overlay that _build_chrome installed as the window child.
+        content_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content_col.append(win._search_bar)
+        content_col.append(main_overlay)
+        win._toast_overlay.set_child(content_col)
 
-    def _wire_search(self, win: Adw.ApplicationWindow):
+    def _wire_search(self, win: Gtk.ApplicationWindow):
         """Connect the search entry to the filter pipeline with debounce."""
         win._search_debounce_id = 0
         # Set when a view (Recently Read, All Books) clears the entry itself:
@@ -1018,20 +1210,20 @@ class HermitageApp(Adw.Application):
     def _on_book_activated(
         grid: Gtk.GridView,
         position: int,
-        win: Adw.ApplicationWindow,
+        win: Gtk.ApplicationWindow,
     ):
         """Handle grid item activation — populate and show the Codex."""
         obj: BookObject = grid.get_model().get_item(position)
         if obj is None:
             return
         win._codex.show_book(obj.book)
-        win._split.set_show_sidebar(True)
+        win._codex_revealer.set_reveal_child(True)
 
     @staticmethod
     def _on_vl_activated(
         listbox: Gtk.ListBox,
         row: Gtk.ListBoxRow,
-        win: Adw.ApplicationWindow,
+        win: Gtk.ApplicationWindow,
     ):
         """Apply a virtual library filter when a sidebar row is clicked."""
         vl_name = row._vl_name
@@ -1049,14 +1241,14 @@ class HermitageApp(Adw.Application):
             win._search_btn.set_active(True)
 
     @staticmethod
-    def _clear_search_entry_silently(win: Adw.ApplicationWindow):
+    def _clear_search_entry_silently(win: Gtk.ApplicationWindow):
         """Empty the search entry without its delayed clear side-effects."""
         if win._search_entry.get_text():
             win._suppress_clear = True
             win._search_entry.set_text("")
 
     @staticmethod
-    def _reset_no_results(win: Adw.ApplicationWindow):
+    def _reset_no_results(win: Gtk.ApplicationWindow):
         """Restore the no-results page's default copy."""
         win._no_results.set_title("No matches")
         win._no_results.set_description(
@@ -1064,7 +1256,7 @@ class HermitageApp(Adw.Application):
         )
 
     @staticmethod
-    def _clear_search_view(win: Adw.ApplicationWindow):
+    def _clear_search_view(win: Gtk.ApplicationWindow):
         """Return to the unfiltered 'All Books' view."""
         win._filter.set_filter_func(None)
         win._title_widget.set_subtitle(f"{len(win._books)} books")
@@ -1077,7 +1269,7 @@ class HermitageApp(Adw.Application):
         HermitageApp._restore_scroll(win)
 
     @staticmethod
-    def _apply_recently_read(win: Adw.ApplicationWindow):
+    def _apply_recently_read(win: Gtk.ApplicationWindow):
         """Filter the grid to opened books, ordered by most recent open."""
         from hermitage import history
 
@@ -1117,7 +1309,7 @@ class HermitageApp(Adw.Application):
     @staticmethod
     def _on_search_changed(
         entry: Gtk.SearchEntry,
-        win: Adw.ApplicationWindow,
+        win: Gtk.ApplicationWindow,
     ):
         """Debounce search — wait 400ms after last keystroke before filtering."""
         if win._search_debounce_id:
@@ -1180,7 +1372,7 @@ class HermitageApp(Adw.Application):
         win._search_debounce_id = GLib.timeout_add(400, _apply_filter)
 
     @staticmethod
-    def _save_scroll_if_unfiltered(win: Adw.ApplicationWindow):
+    def _save_scroll_if_unfiltered(win: Gtk.ApplicationWindow):
         """Capture the grid's scroll position on the first filter application."""
         if win._saved_scroll is not None:
             return
@@ -1190,7 +1382,7 @@ class HermitageApp(Adw.Application):
         win._saved_scroll = scrolled.get_vadjustment().get_value()
 
     @staticmethod
-    def _restore_scroll(win: Adw.ApplicationWindow):
+    def _restore_scroll(win: Gtk.ApplicationWindow):
         """Restore the grid's scroll position after a filter clear."""
         scrolled = getattr(win, "_scrolled", None)
         if scrolled is None or win._saved_scroll is None:
@@ -1207,7 +1399,7 @@ class HermitageApp(Adw.Application):
         GLib.idle_add(_do)
 
     @staticmethod
-    def _resort_grid(win: Adw.ApplicationWindow):
+    def _resort_grid(win: Gtk.ApplicationWindow):
         """Re-sort the grid store based on current config values."""
         store = win._store
         field = cfg_get("sort_field", "title")
@@ -1222,7 +1414,7 @@ class HermitageApp(Adw.Application):
 
     # -- builders -----------------------------------------------------------
 
-    def _build_vl_sidebar(self, win: Adw.ApplicationWindow) -> Gtk.Widget:
+    def _build_vl_sidebar(self, win: Gtk.ApplicationWindow) -> Gtk.Widget:
         """Build the virtual library sidebar list."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
@@ -1270,32 +1462,6 @@ class HermitageApp(Adw.Application):
         row.set_child(label)
         row._vl_name = vl_name
         return row
-
-    @staticmethod
-    def _setup_breakpoints(win: Adw.ApplicationWindow, grid: Gtk.GridView):
-        """Configure responsive column scaling via Adw.Breakpoint."""
-
-        def _uint(v: int) -> GObject.Value:
-            val = GObject.Value(GObject.TYPE_UINT)
-            val.set_uint(v)
-            return val
-
-        # When several breakpoints match, libadwaita applies the LAST one
-        # added — so the broad condition must come first and the narrowest
-        # last, or a <500sp window gets the medium columns.
-        bp_medium = Adw.Breakpoint(
-            condition=Adw.BreakpointCondition.parse("max-width: 900sp"),
-        )
-        bp_medium.add_setter(grid, "min-columns", _uint(3))
-        bp_medium.add_setter(grid, "max-columns", _uint(5))
-        win.add_breakpoint(bp_medium)
-
-        bp_narrow = Adw.Breakpoint(
-            condition=Adw.BreakpointCondition.parse("max-width: 500sp"),
-        )
-        bp_narrow.add_setter(grid, "min-columns", _uint(2))
-        bp_narrow.add_setter(grid, "max-columns", _uint(3))
-        win.add_breakpoint(bp_narrow)
 
 
 def run():

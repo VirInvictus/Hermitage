@@ -34,15 +34,45 @@ def _warn_once(cover: Path, reason: str) -> None:
     print(f"hermitage: skipping cover {cover}: {reason}", file=sys.stderr)
 
 
-THUMB_WIDTH = 360  # 2x grid cell for HiDPI
-THUMB_HEIGHT = 540
+THUMB_BASE_WIDTH = 360  # 2x the 180px grid cell — scale-1 / HiDPI-ready
+THUMB_BASE_HEIGHT = 540
 THUMB_QUALITY = 85
 CACHE_DIR = Path.home() / ".cache" / "hermitage" / "thumbs"
 
+# Display scale factor (1 on a standard display; 2/3 on HiDPI, and the integer
+# GTK renders at under Hyprland fractional scaling — get_scale_factor() is
+# always an integer). Covers are cached per-tier under thumbs/<scale>/ so a 2x
+# display gets 2x-denser thumbnails instead of an upscaled 1x cache. app.py
+# seeds this from the window; individual binds pass their own cell's scale.
+_default_scale = 1
+_default_scale_lock = threading.Lock()
+
+
+def set_default_scale(scale: int) -> None:
+    """Set the fallback scale used when a request omits one (from the window)."""
+    global _default_scale
+    with _default_scale_lock:
+        _default_scale = max(1, int(scale))
+
+
+def _resolve_scale(scale: int | None) -> int:
+    if scale is None:
+        with _default_scale_lock:
+            return _default_scale
+    return max(1, int(scale))
+
+
+def _thumb_dims(scale: int) -> tuple[int, int]:
+    """Thumbnail pixel size for an integer display scale factor (pure)."""
+    s = max(1, int(scale))
+    return (THUMB_BASE_WIDTH * s, THUMB_BASE_HEIGHT * s)
+
+
 # In-memory texture cache — holds decoded Gdk.Textures so bind() never
 # touches disk for recently-seen covers.  512 entries ≈ 4-5 screenfuls.
+# Keyed by (cover, scale): the same cover at 1x and 2x are distinct textures.
 _TEXTURE_CACHE_MAX = 512
-_texture_cache: OrderedDict[Path, Gdk.Texture] = OrderedDict()
+_texture_cache: OrderedDict[tuple[Path, int], Gdk.Texture] = OrderedDict()
 _texture_lock = threading.Lock()
 
 # Interactive requests (visible cells, Codex hero) get their own pool so they
@@ -53,10 +83,10 @@ _warm_executor = ThreadPoolExecutor(
     max_workers=2, thread_name_prefix="hermitage-thumb-warm"
 )
 
-# In-flight async requests: cover path -> callbacks awaiting it. Duplicate
+# In-flight async requests: (cover, scale) -> callbacks awaiting it. Duplicate
 # requests coalesce into one decode, but every caller still gets its callback
 # (the grid cell and the Codex hero can race for the same cover).
-_pending: dict[Path, list] = {}
+_pending: dict[tuple[Path, int], list] = {}
 _pending_lock = threading.Lock()
 
 
@@ -65,18 +95,18 @@ _pending_lock = threading.Lock()
 # ---------------------------------------------------------------------------
 
 
-def _thumb_path(cover: Path) -> Path:
-    """Deterministic cache path based on source path + mtime."""
+def _thumb_path(cover: Path, scale: int) -> Path:
+    """Deterministic cache path based on source path + mtime, per scale tier."""
     stat = cover.stat()
     key = f"{cover}:{stat.st_mtime_ns}:{stat.st_size}"
     digest = hashlib.blake2b(key.encode(), digest_size=16).hexdigest()
-    return CACHE_DIR / f"{digest}.jpg"
+    return CACHE_DIR / str(scale) / f"{digest}.jpg"
 
 
-def _generate_thumbnail(cover: Path) -> Path | None:
+def _generate_thumbnail(cover: Path, scale: int) -> Path | None:
     """Write a thumbnail to disk if it doesn't already exist."""
     try:
-        thumb = _thumb_path(cover)
+        thumb = _thumb_path(cover, scale)
     except OSError as exc:
         _warn_once(cover, f"stat failed ({exc})")
         return None
@@ -88,9 +118,9 @@ def _generate_thumbnail(cover: Path) -> Path | None:
         if cover.stat().st_size == 0:
             _warn_once(cover, "zero-byte file")
             return None
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
         with Image.open(cover) as img:
-            img.thumbnail((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
+            img.thumbnail(_thumb_dims(scale), Image.LANCZOS)
             if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
             img.save(thumb, "JPEG", quality=THUMB_QUALITY, optimize=True)
@@ -113,20 +143,22 @@ def _load_texture(thumb: Path) -> Gdk.Texture | None:
 # ---------------------------------------------------------------------------
 
 
-def get_cached_texture(cover: Path) -> Gdk.Texture | None:
+def get_cached_texture(cover: Path, scale: int | None = None) -> Gdk.Texture | None:
     """Return a cached texture if available. O(1), no I/O, main-thread safe."""
+    key = (cover, _resolve_scale(scale))
     with _texture_lock:
-        tex = _texture_cache.get(cover)
+        tex = _texture_cache.get(key)
         if tex is not None:
-            _texture_cache.move_to_end(cover)
+            _texture_cache.move_to_end(key)
         return tex
 
 
-def _store_texture(cover: Path, texture: Gdk.Texture):
+def _store_texture(cover: Path, scale: int, texture: Gdk.Texture):
     """Insert a texture into the LRU cache, evicting the oldest if full."""
+    key = (cover, scale)
     with _texture_lock:
-        _texture_cache[cover] = texture
-        _texture_cache.move_to_end(cover)
+        _texture_cache[key] = texture
+        _texture_cache.move_to_end(key)
         while len(_texture_cache) > _TEXTURE_CACHE_MAX:
             _texture_cache.popitem(last=False)
 
@@ -136,31 +168,33 @@ def _store_texture(cover: Path, texture: Gdk.Texture):
 # ---------------------------------------------------------------------------
 
 
-def request_texture(cover: Path, callback):
+def request_texture(cover: Path, callback, scale: int | None = None):
     """Request a Gdk.Texture for *cover* asynchronously.
 
     *callback(cover, texture_or_None)* is invoked on the **main thread**
-    via GLib.idle_add.  Duplicate requests for the same cover coalesce into a
-    single decode, but every registered callback is delivered.
+    via GLib.idle_add.  Duplicate requests for the same cover+scale coalesce
+    into a single decode, but every registered callback is delivered.
     """
+    scale = _resolve_scale(scale)
+    key = (cover, scale)
     with _pending_lock:
-        waiters = _pending.get(cover)
+        waiters = _pending.get(key)
         if waiters is not None:
             waiters.append(callback)
             return
-        _pending[cover] = [callback]
+        _pending[key] = [callback]
 
     def _work():
         try:
-            thumb = _generate_thumbnail(cover)
+            thumb = _generate_thumbnail(cover, scale)
             texture = _load_texture(thumb) if thumb else None
             if texture:
-                _store_texture(cover, texture)
+                _store_texture(cover, scale, texture)
         except Exception:
             texture = None
         finally:
             with _pending_lock:
-                callbacks = _pending.pop(cover, [])
+                callbacks = _pending.pop(key, [])
 
         def _deliver():
             for cb in callbacks:
@@ -172,12 +206,13 @@ def request_texture(cover: Path, callback):
     _executor.submit(_work)
 
 
-def warm_cache(covers: list[Path], progress=None):
+def warm_cache(covers: list[Path], progress=None, scale: int | None = None):
     """Pre-generate disk thumbnails for a batch of covers (fire-and-forget).
 
     If *progress* is given, it is invoked on the **main thread** as
     ``progress(done, total)`` — once per ~32 completions plus a final call.
     """
+    scale = _resolve_scale(scale)
     total = len(covers)
     if total == 0:
         if progress:
@@ -191,7 +226,7 @@ def warm_cache(covers: list[Path], progress=None):
         # The counter must advance even if generation throws, or the
         # "indexing covers (N%)" subtitle sticks below 100% forever.
         try:
-            _generate_thumbnail(cover)
+            _generate_thumbnail(cover, scale)
         finally:
             if progress is not None:
                 with counter_lock:
