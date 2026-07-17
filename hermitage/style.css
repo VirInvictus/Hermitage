@@ -407,6 +407,24 @@ gridview > child {
     padding: 8px 28px;
 }
 
+/* Custom-column "Details" rows: a fixed-width name column beside its value. */
+.codex-custom-name {
+    font-family: "IBM Plex Sans Condensed", "Inter Variable", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: alpha(@window_fg_color, 0.55);
+    letter-spacing: 0.04em;
+    min-width: 110px;
+    margin-top: 4px;
+}
+
+.codex-custom-value {
+    font-family: "Inter Variable", "Inter", sans-serif;
+    font-size: 13px;
+    color: alpha(@window_fg_color, 0.92);
+    margin-top: 3px;
+}
+
 .codex-dismiss {
     background-color: alpha(black, 0.4);
     color: white;

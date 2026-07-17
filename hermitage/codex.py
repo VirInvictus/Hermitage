@@ -15,7 +15,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from hermitage import widgets
-from hermitage.database import Book, library_root
+from hermitage.database import Book, CustomColumn, library_root
 from hermitage.thumbnailer import get_cached_texture, request_texture
 
 # ---------------------------------------------------------------------------
@@ -146,10 +146,14 @@ class CodexView(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._current_book: Book | None = None
+        self._custom_columns: list[CustomColumn] = []
         self.on_dismiss = None
         self.on_search = None  # callback(query_str) — populate search bar
         self.on_book_opened = None  # callback(book_id) — fired after Read launch
         self._build_ui()
+
+    # Datatypes rendered as clickable filter pills; everything else is a line.
+    _PILL_DATATYPES = frozenset({"text", "enumeration", "series"})
 
     def _build_ui(self):
         # Scrollable container for the full detail view
@@ -286,6 +290,15 @@ class CodexView(Gtk.Box):
         self._tags_flow.add_css_class("codex-tags")
         body_inner.append(self._tags_flow)
 
+        # Custom columns section ("Details") — user-defined Calibre columns
+        self._custom_header = Gtk.Label(label="Details", xalign=0)
+        self._custom_header.add_css_class("codex-section-title")
+        body_inner.append(self._custom_header)
+
+        self._custom_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self._custom_box.add_css_class("codex-custom")
+        body_inner.append(self._custom_box)
+
         # Identifiers section ("Find this book on …")
         self._idents_header = Gtk.Label(label="Find this book on", xalign=0)
         self._idents_header.add_css_class("codex-section-title")
@@ -334,6 +347,10 @@ class CodexView(Gtk.Box):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def set_custom_columns(self, columns: list[CustomColumn]):
+        """Provide the custom-column schema (display names, datatypes, order)."""
+        self._custom_columns = columns
 
     def show_book(self, book: Book):
         """Populate the Codex with a book's details."""
@@ -405,6 +422,9 @@ class CodexView(Gtk.Box):
             self._idents_header.set_visible(False)
             self._idents_flow.set_visible(False)
 
+        # Custom columns ("Details")
+        self._populate_custom(book)
+
         # Synopsis
         if book.comment:
             text = _clean_html(book.comment)
@@ -465,6 +485,94 @@ class CodexView(Gtk.Box):
             if child is None:
                 break
             flow.remove(child)
+
+    def _populate_custom(self, book: Book):
+        """Render the user's Calibre custom columns as the Details section."""
+        while (child := self._custom_box.get_first_child()) is not None:
+            self._custom_box.remove(child)
+
+        rows = [
+            (col, book.custom[col.label])
+            for col in self._custom_columns
+            if book.custom.get(col.label) not in (None, "", [])
+        ]
+        if not rows:
+            self._custom_header.set_visible(False)
+            self._custom_box.set_visible(False)
+            return
+
+        self._custom_header.set_visible(True)
+        self._custom_box.set_visible(True)
+        for col, value in rows:
+            self._custom_box.append(self._custom_row(col, value))
+
+    def _custom_row(self, col: CustomColumn, value) -> Gtk.Box:
+        """One Details row: the column name beside its value(s)."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.add_css_class("codex-custom-row")
+
+        name = Gtk.Label(label=col.name, xalign=0)
+        name.add_css_class("codex-custom-name")
+        name.set_valign(Gtk.Align.START)
+        row.append(name)
+
+        if col.datatype in self._PILL_DATATYPES:
+            flow = Gtk.FlowBox()
+            flow.set_selection_mode(Gtk.SelectionMode.NONE)
+            flow.set_homogeneous(False)
+            flow.set_max_children_per_line(20)
+            flow.set_min_children_per_line(1)
+            flow.set_row_spacing(6)
+            flow.set_column_spacing(6)
+            flow.set_hexpand(True)
+            flow.add_css_class("codex-tags")
+            values = value if isinstance(value, list) else [value]
+            for v in values:
+                vs = str(v).strip()
+                if not vs:
+                    continue
+                pill = Gtk.Button(label=vs)
+                pill.add_css_class("codex-tag-pill")
+                pill.add_css_class("codex-link-btn")
+                pill.set_tooltip_text(f"Filter library to {col.name}: “{vs}”")
+                pill.connect("clicked", self._on_custom_clicked, col.label, vs)
+                flow.append(pill)
+            row.append(flow)
+        else:
+            vlabel = Gtk.Label(label=self._format_scalar(col, value), xalign=0)
+            vlabel.add_css_class("codex-custom-value")
+            vlabel.set_wrap(True)
+            vlabel.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            vlabel.set_hexpand(True)
+            row.append(vlabel)
+
+        return row
+
+    @staticmethod
+    def _format_scalar(col: CustomColumn, value) -> str:
+        """Human-format a non-pill custom value by its Calibre datatype."""
+        dt = col.datatype
+        if dt == "datetime":
+            from datetime import datetime
+
+            try:
+                parsed = datetime.fromisoformat(str(value))
+                if parsed.year > 101:  # Calibre's "undefined date" sentinel is year 101
+                    return parsed.strftime("%B %d, %Y")
+            except (ValueError, TypeError):
+                pass
+            return str(value)
+        if dt == "bool":
+            return "Yes" if value else "No"
+        if dt == "comments":
+            return _clean_html(str(value))
+        if dt == "float":
+            try:
+                f = float(value)
+                return str(int(f)) if f == int(f) else str(f)
+            except (ValueError, TypeError):
+                return str(value)
+        return str(value)
 
     def _load_hero_cover(self, book: Book, cover: Path):
         """Set the mini cover in the hero from the thumbnail cache."""
@@ -543,6 +651,16 @@ class CodexView(Gtk.Box):
         """Search for a specific tag."""
         if self.on_search:
             self.on_search(f'tags:"{tag}"')
+
+    def _on_custom_clicked(self, btn, label: str, value: str):
+        """Filter the library by a custom-column value.
+
+        Exact match (the `=` prefix), so clicking "Read" does not also pull in
+        "To Read" the way a substring search would — this mirrors what Calibre
+        itself generates when you click a custom-column value in its UI.
+        """
+        if self.on_search:
+            self.on_search(f'#{label}:"={value}"')
 
     def _on_identifier_clicked(self, btn, url: str):
         """Open an external identifier URL in the system browser."""

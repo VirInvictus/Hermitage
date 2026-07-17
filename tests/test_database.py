@@ -49,11 +49,27 @@ CREATE TABLE identifiers (
     id INTEGER PRIMARY KEY, book INTEGER, type TEXT, val TEXT
 );
 CREATE TABLE preferences (id INTEGER PRIMARY KEY, key TEXT, val TEXT);
+CREATE TABLE custom_columns (
+    id INTEGER PRIMARY KEY, label TEXT, name TEXT, datatype TEXT, is_multiple INTEGER
+);
+-- col 1 (status): normalized enumeration — value table + link table
+CREATE TABLE custom_column_1 (id INTEGER PRIMARY KEY, value TEXT, link TEXT);
+CREATE TABLE books_custom_column_1_link (
+    id INTEGER PRIMARY KEY, book INTEGER, value INTEGER
+);
+-- col 2 (translators): normalized multi-valued text
+CREATE TABLE custom_column_2 (id INTEGER PRIMARY KEY, value TEXT, link TEXT);
+CREATE TABLE books_custom_column_2_link (
+    id INTEGER PRIMARY KEY, book INTEGER, value INTEGER
+);
+-- col 3 (date_read): stored directly — a `book` column, no link table
+CREATE TABLE custom_column_3 (id INTEGER PRIMARY KEY, book INTEGER, value TEXT);
 """
 
 
 def _reset_module_state():
     database._library_root_cache = None
+    database._custom_columns_cache = None
     database._cleanup_snapshot()
     database._snapshot_notified = False
 
@@ -149,6 +165,35 @@ class _FixtureBase(unittest.TestCase):
             "INSERT INTO preferences(key, val) VALUES ('virtual_libraries', ?)",
             (json.dumps({"Fantasy": 'tags:"Fic.Fantasy"'}),),
         )
+        # Custom columns — three shapes: a single-valued normalized enumeration,
+        # a multi-valued normalized text column, and a directly-stored datetime.
+        # Only book 1 carries values; book 2 must come back with custom == {}.
+        conn.executemany(
+            "INSERT INTO custom_columns(id, label, name, datatype, is_multiple)"
+            " VALUES (?,?,?,?,?)",
+            [
+                (1, "status", "Status", "enumeration", 0),
+                (2, "translators", "Translators", "text", 1),
+                (3, "date_read", "Date Read", "datetime", 0),
+            ],
+        )
+        conn.execute(
+            "INSERT INTO custom_column_1(id, value, link) VALUES (1, 'Read', '')"
+        )
+        conn.execute(
+            "INSERT INTO books_custom_column_1_link(book, value) VALUES (1, 1)"
+        )
+        conn.executemany(
+            "INSERT INTO custom_column_2(id, value, link) VALUES (?,?,?)",
+            [(1, "Alpha", ""), (2, "Beta", "")],
+        )
+        conn.executemany(
+            "INSERT INTO books_custom_column_2_link(book, value) VALUES (?,?)",
+            [(1, 1), (1, 2)],
+        )
+        conn.execute(
+            "INSERT INTO custom_column_3(book, value) VALUES (1, '2026-02-14')"
+        )
 
 
 class TestLoadLibrary(_FixtureBase):
@@ -233,7 +278,36 @@ class TestBookDataclass(unittest.TestCase):
         self.assertEqual(b.tags, [])
         self.assertEqual(b.formats, [])
         self.assertEqual(b.identifiers, {})
+        self.assertEqual(b.custom, {})
         self.assertIsNone(b.cover_path)
+
+
+class TestCustomColumns(_FixtureBase):
+    def test_schema_loaded(self):
+        cols = {c.label: c for c in database.load_custom_columns()}
+        self.assertEqual(set(cols), {"status", "translators", "date_read"})
+        self.assertEqual(cols["status"].name, "Status")
+        self.assertFalse(cols["status"].is_multiple)
+        self.assertTrue(cols["translators"].is_multiple)
+        self.assertEqual(cols["date_read"].datatype, "datetime")
+
+    def test_values_populated_per_book(self):
+        by_id = {b.id: b for b in load_library()}
+        b1 = by_id[1]
+        # Single-valued normalized column → scalar; multi → list; direct storage.
+        self.assertEqual(b1.custom["status"], "Read")
+        self.assertEqual(b1.custom["translators"], ["Alpha", "Beta"])
+        self.assertEqual(b1.custom["date_read"], "2026-02-14")
+        # A book with no custom values comes back with an empty dict.
+        self.assertEqual(by_id[2].custom, {})
+
+    def test_schema_cache_warmed_by_load_library(self):
+        load_library()
+        # After a library load the schema is cached, so load_custom_columns()
+        # returns it without reopening the DB.
+        self.assertIsNotNone(database._custom_columns_cache)
+        labels = {c.label for c in database.load_custom_columns()}
+        self.assertEqual(labels, {"status", "translators", "date_read"})
 
 
 if __name__ == "__main__":

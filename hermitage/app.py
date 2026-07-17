@@ -14,7 +14,12 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from hermitage import theme, widgets
 from hermitage.codex import CodexView
 from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
-from hermitage.database import Book, load_library, load_virtual_libraries
+from hermitage.database import (
+    Book,
+    load_custom_columns,
+    load_library,
+    load_virtual_libraries,
+)
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
 from hermitage.search import filter_books
@@ -923,6 +928,7 @@ class HermitageApp(Gtk.Application):
             return GLib.SOURCE_REMOVE
 
         win._books = books
+        win._codex.set_custom_columns(load_custom_columns())
 
         grid = self._build_grid(win, books)
         self._build_layout(win, grid)

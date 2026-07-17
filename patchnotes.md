@@ -1,5 +1,74 @@
 # Hermitage — Patch Notes
 
+## v0.18.0 (2026-07-17) — Custom Columns in the Codex
+
+Roadmap Phase 11's last open item lands: Calibre custom columns. Hermitage now
+reads the user-defined columns from `metadata.db` (the same read-only path as
+everything else) and surfaces them in the Codex detail view and the search
+grammar. This closes Phase 11 (the CalibreQuarry feature port); the port
+follows cquarry's `get_custom_columns()` / `load_custom_column()` logic, adapted
+to Hermitage's `Book` dataclass and GTK surfaces.
+
+---
+
+### New Features
+
+**Custom columns in the Codex "Details" section.** Any user-defined Calibre
+column (Status, Source, Translators, Date Read, Audience, whatever the library
+has) now renders read-only in a new Details section between Tags and the
+"Find this book on" links. Text and enumeration columns render as clickable
+pills; clicking one filters the library to that value. Datetime, number, and
+boolean columns render as plain metadata lines, with datetimes formatted the
+same way the publication date already is (and Calibre's year-101 "undefined"
+sentinel suppressed). The section hides itself entirely when a book has no
+custom values, so it never leaves an empty header behind.
+
+**`#label:` search.** Custom columns are searchable with Calibre's own syntax,
+for example `#reading_status:Read`, `#source:"Standard Ebooks"`, or
+`#translators:Rubin`. Multi-valued text columns match on any of their values.
+The tokenizer already kept a leading `#` inside a word, so this needed only the
+field-value lookup, not new grammar. Bare (unprefixed) search is unchanged and
+still spans title/authors/tags/series only, to avoid surprising matches.
+
+**Exact-match pills.** A pill click emits an exact match (`#label:"=value"`)
+rather than a substring search, so clicking "Read" does not also pull in
+"To Read". This mirrors what Calibre itself generates when you click a
+custom-column value in its own UI. Typing an unprefixed value in the search bar
+still does Calibre's substring-contains matching.
+
+---
+
+### Structural Improvements
+
+**Bulk-loaded, no N+1.** `database.load_library()` loads each custom column's
+values in one query per column (mirroring the existing identifiers bulk-load)
+and attaches them to `Book.custom`, keyed by column label. Multi-valued columns
+hold a `list[str]`; every other datatype holds a single scalar; only columns
+that actually have a value for a given book appear. The column schema (id,
+label, display name, datatype, multiplicity) is exposed via
+`database.load_custom_columns()` as a list of `CustomColumn`, cached after the
+first library load so the Codex never reopens the database just to learn the
+display names.
+
+**Both Calibre storage shapes handled.** Following cquarry, the loader detects
+how a column is stored by whether its `books_custom_column_N_link` join table
+exists, not by the `is_multiple` flag: normalized text/enumeration/series
+columns come from a value table joined through the link table (even
+single-valued enumerations), while int/float/bool/datetime/comments columns are
+read directly from `custom_column_N`. Composite (computed) columns have no value
+table and are skipped gracefully.
+
+**Tests.** Eleven new tests. `test_database.py` gains a fixture with all three
+shapes (a normalized enumeration, a multi-valued text column, and a
+directly-stored datetime) and asserts the schema, per-book values, the
+empty-dict case for a book with none, and that the schema cache is warmed by a
+library load. `test_search.py` covers `#label:` tokenizing/parsing, scalar and
+multi-valued matching, exact match, a missing column, and end-to-end
+`filter_books`. Full suite is 84 tests; `ruff check` is clean; `hermitage-verify`
+reads all 7,210 books from the live library unchanged.
+
+---
+
 ## v0.17.0 (2026-07-11) — Hyprland-Native: De-adwaita, Owned Stylesheet, Tiling Ergonomics
 
 Phases 13 and 14 landed together. Brandon's desktop moved from GNOME Shell to

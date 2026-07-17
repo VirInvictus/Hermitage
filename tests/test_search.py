@@ -236,5 +236,49 @@ class TestFilterBooks(unittest.TestCase):
         self.assertEqual(filter_books("a )", self.books), self.books)
 
 
+# --------------------------------------------------------------------------- #
+# custom columns (#label:value)
+# --------------------------------------------------------------------------- #
+class TestCustomColumns(unittest.TestCase):
+    def test_hash_field_tokenizes_and_parses(self):
+        toks = tokenize("#reading_status:Read")
+        self.assertEqual(
+            [t.type for t in toks],
+            [TokType.WORD, TokType.COLON, TokType.WORD, TokType.EOF],
+        )
+        self.assertEqual(toks[0].value, "#reading_status")
+        expr = parse_query("#reading_status:Read")
+        self.assertIsInstance(expr, FieldExpr)
+        self.assertEqual(expr.field, "#reading_status")
+
+    def test_scalar_match(self):
+        book = _book(custom={"reading_status": "Read"})
+        self.assertTrue(evaluate(parse_query("#reading_status:Read"), book))
+        self.assertTrue(evaluate(parse_query("#reading_status:rea"), book))
+        self.assertFalse(evaluate(parse_query("#reading_status:Unread"), book))
+
+    def test_exact_match(self):
+        book = _book(custom={"reading_status": "Read"})
+        self.assertTrue(evaluate(parse_query('#reading_status:"=Read"'), book))
+        self.assertFalse(evaluate(parse_query('#reading_status:"=Rea"'), book))
+
+    def test_multi_valued_match(self):
+        book = _book(custom={"translators": ["Alpha", "Beta"]})
+        self.assertTrue(evaluate(parse_query("#translators:Beta"), book))
+        self.assertFalse(evaluate(parse_query("#translators:Gamma"), book))
+
+    def test_missing_column_no_match(self):
+        self.assertFalse(evaluate(parse_query("#nope:x"), _book()))
+
+    def test_filter_books(self):
+        books = [
+            _book(id=1, custom={"source": "Standard Ebooks"}),
+            _book(id=2, custom={"source": "Anna's Archive"}),
+            _book(id=3),
+        ]
+        got = filter_books('#source:"Standard Ebooks"', books)
+        self.assertEqual([b.id for b in got], [1])
+
+
 if __name__ == "__main__":
     unittest.main()

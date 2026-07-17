@@ -85,6 +85,16 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="0.18.0" date="2026-07-17">
+      <description>
+        <p>Calibre custom columns land in the Codex. User-defined columns
+           (reading status, source, translators, date read, and any others)
+           now show in a new Details section, read-only, and are searchable
+           with Calibre's #label: syntax. Text and enumeration values render
+           as clickable pills that filter the library on an exact match; dates,
+           numbers, and booleans render as plain lines.</p>
+      </description>
+    </release>
     <release version="0.17.0" date="2026-07-11">
       <description>
         <p>Hyprland-native redesign: libadwaita is dropped in favour of plain

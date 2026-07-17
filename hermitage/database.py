@@ -29,6 +29,11 @@ class Book:
     pubdate: str | None = None
     timestamp: str | None = None  # date added to Calibre
     identifiers: dict[str, str] = field(default_factory=dict)
+    # User-defined Calibre custom columns, keyed by column label (e.g.
+    # "reading_status"). Multi-valued text columns hold a list[str]; every
+    # other datatype holds a single scalar (str/int/float). Only columns that
+    # actually have a value for this book appear.
+    custom: dict[str, str | list[str]] = field(default_factory=dict)
 
     @property
     def cover_path(self) -> Path | None:
@@ -36,6 +41,17 @@ class Book:
         if not self.has_cover:
             return None
         return library_root() / self.path / "cover.jpg"
+
+
+@dataclass(slots=True)
+class CustomColumn:
+    """Schema for one Calibre user-defined custom column."""
+
+    id: int
+    label: str  # search key, e.g. "reading_status" (used as #label: in queries)
+    name: str  # display title, e.g. "Status"
+    datatype: str  # text, enumeration, datetime, int, float, bool, comments, ...
+    is_multiple: bool
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +91,102 @@ FROM books b
 GROUP BY b.id
 ORDER BY b.sort COLLATE NOCASE
 """
+
+# ---------------------------------------------------------------------------
+# Custom columns (ported from ../CalibreQuarry/src/cquarry/db.py)
+# ---------------------------------------------------------------------------
+#
+# Calibre stores user-defined columns in a `custom_columns` schema table. The
+# values live in one of two shapes, and cquarry taught us to detect which by
+# whether a link table exists rather than by is_multiple: text/enumeration/
+# series columns are normalized into a `custom_column_N` value table plus a
+# `books_custom_column_N_link` join table (even single-valued enumerations),
+# while int/float/bool/datetime/comments are stored directly in
+# `custom_column_N` with its own `book` column.
+
+
+def _fetch_custom_columns(conn: sqlite3.Connection) -> list[CustomColumn]:
+    """Read every custom column's schema. Empty list if the table is absent."""
+    try:
+        rows = conn.execute(
+            "SELECT id, label, name, datatype, is_multiple FROM custom_columns",
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    return [
+        CustomColumn(
+            id=r["id"],
+            label=r["label"],
+            name=r["name"],
+            datatype=r["datatype"],
+            is_multiple=bool(r["is_multiple"]),
+        )
+        for r in rows
+    ]
+
+
+def _fetch_custom_values(
+    conn: sqlite3.Connection,
+    col: CustomColumn,
+) -> dict[int, str | list[str]]:
+    """Load {book_id: value} for one custom column (multi-valued → list)."""
+    cid = col.id
+    link_table = f"books_custom_column_{cid}_link"
+    has_link = bool(
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (link_table,),
+        ).fetchone()
+    )
+
+    try:
+        if has_link:
+            rows = conn.execute(
+                f"SELECT l.book AS book, c.value AS value "
+                f"FROM {link_table} l "
+                f"JOIN custom_column_{cid} c ON c.id = l.value"
+            ).fetchall()
+            grouped: dict[int, list[str]] = {}
+            for r in rows:
+                grouped.setdefault(r["book"], []).append(r["value"])
+            if col.is_multiple:
+                return {k: [str(v) for v in vals] for k, vals in grouped.items()}
+            # Single-valued normalized column (text, enumeration): one value.
+            return {k: vals[0] for k, vals in grouped.items()}
+        # Stored directly (int, float, bool, datetime, comments). Composite
+        # columns are computed and have no value table — the SELECT errors and
+        # we treat them as having no stored values.
+        return {
+            r["book"]: r["value"]
+            for r in conn.execute(
+                f"SELECT book, value FROM custom_column_{cid}"
+            ).fetchall()
+        }
+    except sqlite3.OperationalError as exc:
+        print(
+            f"hermitage: could not read custom column '{col.label}': {exc}",
+            file=sys.stderr,
+        )
+        return {}
+
+
+# Schema cache — warmed by load_library(), reused by load_custom_columns() so
+# the Codex doesn't reopen the DB just to learn the display names.
+_custom_columns_cache: list[CustomColumn] | None = None
+
+
+def load_custom_columns() -> list[CustomColumn]:
+    """Return the custom-column schema (cached after the first library load)."""
+    global _custom_columns_cache
+    if _custom_columns_cache is not None:
+        return _custom_columns_cache
+    conn = _connect()
+    try:
+        _custom_columns_cache = _fetch_custom_columns(conn)
+    finally:
+        conn.close()
+    return _custom_columns_cache
+
 
 # ---------------------------------------------------------------------------
 # Library root resolution
@@ -209,19 +321,33 @@ def _connect() -> sqlite3.Connection:
 
 def load_library() -> list[Book]:
     """Load every book from the Calibre database (read-only)."""
-    global _library_root_cache
+    global _library_root_cache, _custom_columns_cache
     _library_root_cache = _resolve_library_path().parent
     conn = _connect()
     try:
         rows = conn.execute(_BOOKS_QUERY).fetchall()
         # Bulk-load identifiers in a single query — avoids N+1 on the hot path.
         ident_rows = conn.execute("SELECT book, type, val FROM identifiers").fetchall()
+        # Same idea for custom columns: one query per column, not per book.
+        custom_cols = _fetch_custom_columns(conn)
+        custom_values = {
+            col.label: _fetch_custom_values(conn, col) for col in custom_cols
+        }
     finally:
         conn.close()
+
+    _custom_columns_cache = custom_cols
 
     by_book: dict[int, dict[str, str]] = {}
     for ir in ident_rows:
         by_book.setdefault(ir["book"], {})[ir["type"]] = ir["val"]
+
+    def _custom_for(book_id: int) -> dict[str, str | list[str]]:
+        return {
+            col.label: custom_values[col.label][book_id]
+            for col in custom_cols
+            if book_id in custom_values[col.label]
+        }
 
     books: list[Book] = []
     for r in rows:
@@ -246,6 +372,7 @@ def load_library() -> list[Book]:
                 pubdate=r["pubdate"],
                 timestamp=r["timestamp"],
                 identifiers=by_book.get(r["id"], {}),
+                custom=_custom_for(r["id"]),
             )
         )
     return books

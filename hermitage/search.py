@@ -7,6 +7,7 @@ Supports:
   - Boolean operators: and, or, not (case-insensitive)
   - Parentheses for grouping
   - Virtual library references: vl:"Library Name"
+  - Custom columns: #label:value (e.g. #reading_status:Read)
   - Bare text: searches across title, authors, tags, series
 """
 
@@ -255,6 +256,15 @@ def parse_query(query: str) -> Expr | None:
 
 def _field_values(book: Book, field: str) -> list[str]:
     """Get the searchable string values for a field on a Book."""
+    # Custom columns are addressed Calibre-style as #label (the tokenizer keeps
+    # the leading '#' inside the word). Multi-valued columns hold a list.
+    if field.startswith("#"):
+        raw = book.custom.get(field[1:])
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            return [str(v) for v in raw]
+        return [str(raw)]
     if field == "title":
         return [book.title]
     elif field in ("author", "authors"):
