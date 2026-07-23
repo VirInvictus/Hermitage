@@ -30,6 +30,12 @@ version = { attr = "hermitage.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["hermitage*"]
+# Declared in pyproject, packages.find defaults to namespace = true, which makes
+# setuptools treat every directory as a candidate package and walk the whole tree
+# with followlinks=True. That escapes the repo via build-flatpak/var/run -> /run
+# (and /run/host -> /) and never terminates. hermitage/ is a regular package, so
+# the classic finder finds it and prunes everything without an __init__.py.
+namespaces = false
 
 [tool.setuptools.package-data]
 hermitage = ["*.css", "fonts/*.ttf", "fonts/*.txt", "fonts/README.md"]
