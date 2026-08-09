@@ -1,5 +1,61 @@
 # Hermitage — Patch Notes
 
+## v0.18.1 (2026-08-09) — Secondary Windows Report the Right `app_id`
+
+The three findings the Phase 13 visual pass turned up on 2026-07-28 and
+deliberately left unactioned (so that audit's commit stayed free of unrelated
+edits) are fixed here. The first is the one with user-visible consequences.
+
+---
+
+### Bug Fixes
+
+**Every secondary window reported the Wayland `app_id` `python`.** The main
+window has always been correct, but Preferences, Library Insights, Keyboard
+Shortcuts, and About were plain `Gtk.Window`s that were never registered with
+the `Gtk.Application`, so GTK fell back to `g_get_prgname()` — `python` under
+`python -m hermitage`, `hermitage` under the console script, and never the app
+id in either case. That matters more here than it would in a GNOME app, because
+`app_id` is exactly what a Hyprland `windowrulev2` keys on: a user rule written
+against `class:^(io.github.virinvictus.hermitage)$` silently missed all four
+windows. All four now pass `application=` at construction, which is what
+`SetupWizard` already did and is the pattern to follow for any new toplevel.
+
+Both candidate fixes named in the roadmap were checked against a live compositor
+before committing, rather than picked by reading the docs: a four-window probe
+under one `Gtk.Application` confirmed that `application=` at construction and a
+later `app.add_window()` both produce the correct class, while the plain
+construction reproduces the bug exactly. The construction kwarg won on being
+one line at the point of definition.
+
+**No more `PyGIWarning` on every launch.** `app.py` imported `Gdk` alongside
+`Gtk` but version-pinned only `Gtk`, so each start printed `Gdk was imported
+without specifying a version first`. Harmless — GTK 4 pulls in Gdk 4 regardless
+— but it was noise on every run, and the project's `E402` per-file-ignore exists
+precisely to accommodate the `gi.require_version` pattern this line skipped.
+
+**Stale module docstring.** `app.py` still described itself as a "GTK 4 /
+Libadwaita application" three phases after v0.17.0 removed libadwaita and after
+`tests/test_guards.py` started failing on any `Adw` import.
+
+---
+
+### Structural Improvements
+
+**A guard test that can see this class of bug.** `TestAppIdLockstep` compares
+`APP_ID` against `StartupWMClass` and is structurally incapable of noticing a
+window that never reaches the application, which is why the bug survived it. The
+new `TestSecondaryWindowAppId` walks the package AST and fails on any
+`Gtk.Window` / `Gtk.AboutDialog` / `Gtk.ApplicationWindow` construction, and any
+`super().__init__` inside a toplevel subclass, that omits `application=`. It
+reports offenders by file and line.
+
+It also carries a test asserting the detector itself fires on the offending
+pattern, and it was confirmed against the real thing: reverting the fixes makes
+it fail naming all three sites. A guard nobody has watched fail is not a guard.
+
+---
+
 ## v0.18.0 (2026-07-17) — Custom Columns in the Codex
 
 Roadmap Phase 11's last open item lands: Calibre custom columns. Hermitage now

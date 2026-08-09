@@ -117,7 +117,10 @@ class InsightsWindow(Gtk.Window):
     """Library Insights — at-a-glance + top-N + audit."""
 
     def __init__(self, parent: Gtk.Window, books: list[Book]):
+        # application= is what carries the app's Wayland app_id onto this surface;
+        # see the same note in preferences.py.
         super().__init__(
+            application=parent.get_application(),
             transient_for=parent,
             modal=True,
             title="Library Insights",

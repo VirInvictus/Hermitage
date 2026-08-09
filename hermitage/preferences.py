@@ -33,7 +33,12 @@ class PreferencesWindow(Gtk.Window):
     """Application preferences backed by config.yaml."""
 
     def __init__(self, parent: Gtk.Window, on_settings_changed=None):
+        # application= is what gives this window the app's Wayland app_id. Without
+        # it GTK falls back to g_get_prgname() and the surface reports "python",
+        # so a Hyprland rule keyed on class:^(io.github.virinvictus.hermitage)$
+        # silently misses this dialog.
         super().__init__(
+            application=parent.get_application(),
             transient_for=parent,
             modal=True,
             title="Preferences",

@@ -1,4 +1,4 @@
-"""Hermitage GTK 4 / Libadwaita application."""
+"""Hermitage GTK 4 application (plain GTK; libadwaita was dropped in v0.17.0)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
@@ -556,6 +557,7 @@ class HermitageApp(Gtk.Application):
         win = self.props.active_window
 
         dlg = Gtk.Window(
+            application=self,
             transient_for=win,
             modal=True,
             title="Keyboard Shortcuts",
@@ -665,6 +667,7 @@ class HermitageApp(Gtk.Application):
             from hermitage import __version__ as ver
 
         about = Gtk.AboutDialog(
+            application=self,
             transient_for=win,
             modal=True,
             program_name="Hermitage",
