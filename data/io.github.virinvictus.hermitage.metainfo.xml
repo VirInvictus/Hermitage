@@ -85,6 +85,15 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="0.18.1" date="2026-08-09">
+      <description>
+        <p>Preferences, Library Insights, Keyboard Shortcuts, and About now
+           report the application's own window identity to the compositor
+           instead of falling back to the interpreter's name, so a window rule
+           written for Hermitage matches these windows too. Also quiets a
+           warning printed on every launch.</p>
+      </description>
+    </release>
     <release version="0.18.0" date="2026-07-17">
       <description>
         <p>Calibre custom columns land in the Codex. User-defined columns

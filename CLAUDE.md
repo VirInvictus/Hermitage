@@ -8,6 +8,8 @@ Hermitage is a Python 3.14 / GTK 4 desktop app that reads a Calibre `metadata.db
 
 **No libadwaita (as of v0.17.0, Phases 13/14).** Hermitage is Hyprland-native: plain GTK 4 + PyGObject, a stylesheet it owns (`style.css` + the Kanagawa Dragon palette in `theme.py`), and portal-based follow-system dark/light. The owned successors to the adwaita widgets live in `hermitage/widgets.py` (`Clamp`, `WindowTitle`, `ToastOverlay`, `StatusPage`, `value_row`/`boxed_list`). Don't reintroduce `Adw` — a guard test (`tests/test_guards.py`) fails if you do. See spec.md §2a for the design language.
 
+**Every toplevel must be registered with the `Gtk.Application`.** Pass `application=` when constructing any `Gtk.Window` / `Gtk.AboutDialog` (or call `app.add_window`). A window that skips it does not inherit the app id: GTK falls back to `g_get_prgname()`, the Wayland surface reports `python`, and a Hyprland `windowrulev2` keyed on the app id silently misses it. That was a real bug in all four secondary windows until v0.18.1. `tests/test_guards.py::TestSecondaryWindowAppId` walks the package AST and fails on any construction that omits it.
+
 ## Run / verify
 
 ```bash
@@ -22,7 +24,7 @@ hermitage
 hermitage-verify   # integrity check + path-resolution benchmark, exits non-zero on issues
 ```
 
-The test suite lives in `tests/` (63 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
+The test suite lives in `tests/` (86 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
 
 System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML` (declared in `pyproject.toml`).
 
