@@ -1,3 +1,3 @@
 """Hermitage — a visual sanctuary for Calibre libraries."""
 
-__version__ = "0.18.1"
+__version__ = "1.0.0"

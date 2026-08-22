@@ -85,6 +85,11 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.0.0" date="2026-08-21">
+      <description>
+        <p>1.0 Milestone and Stable Release. All core end-to-end features — the first-run wizard, search syntax, virtual library sidebars, dynamic covers, reading history, and OS document hooks — are verified stable under Wayland and Hyprland.</p>
+      </description>
+    </release>
     <release version="0.18.1" date="2026-08-09">
       <description>
         <p>Preferences, Library Insights, Keyboard Shortcuts, and About now

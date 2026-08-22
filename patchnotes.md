@@ -1,7 +1,17 @@
 # Hermitage — Patch Notes
 
-## v0.18.1 (2026-08-09) — Secondary Windows Report the Right `app_id`
 
+## v1.0.0 (2026-08-21) — 1.0 Milestone and Stable Release
+
+This release marks the completion of Phase 10 and graduation to a stable 1.0.0 milestone. After extensive regression testing on a live 7,600+ book library, all core end-to-end features — the first-run wizard, search syntax, virtual library sidebars, dynamic covers, reading history, and OS document hooks — are verified stable under Wayland and Hyprland.
+
+---
+
+### Enhancements
+
+**Graduation to Stable:** Hermitage officially ships its 1.0.0 milestone. The application is now fully packaged for release via PyPI and as a Flatpak targeting the GNOME 50 runtime. No new features are introduced in this build; it is a direct promotion of the v0.18 code after clearing the Phase 10 regression gauntlet.
+
+## v0.18.1 (2026-08-09) — Secondary Windows Report the Right `app_id`
 The three findings the Phase 13 visual pass turned up on 2026-07-28 and
 deliberately left unactioned (so that audit's commit stayed free of unrelated
 edits) are fixed here. The first is the one with user-visible consequences.
