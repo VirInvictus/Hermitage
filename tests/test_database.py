@@ -45,6 +45,10 @@ CREATE TABLE books_tags_link (
     id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER
 );
 CREATE TABLE data (id INTEGER PRIMARY KEY, book INTEGER, format TEXT);
+CREATE TABLE publishers (id INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE books_publishers_link (id INTEGER PRIMARY KEY, book INTEGER, publisher INTEGER);
+CREATE TABLE languages (id INTEGER PRIMARY KEY, lang_code TEXT);
+CREATE TABLE books_languages_link (id INTEGER PRIMARY KEY, book INTEGER, lang_code INTEGER);
 CREATE TABLE identifiers (
     id INTEGER PRIMARY KEY, book INTEGER, type TEXT, val TEXT
 );
