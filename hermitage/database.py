@@ -403,3 +403,14 @@ def load_virtual_libraries() -> dict[str, str]:
     except Exception:
         pass
     return {}
+
+from cquarry.db import CalibreDB
+_cquarry_db_instance = None
+
+def get_cquarry_db() -> CalibreDB:
+    global _cquarry_db_instance
+    if _cquarry_db_instance is None:
+        db_path = _resolve_library_path()
+        _cquarry_db_instance = CalibreDB(str(db_path))
+    return _cquarry_db_instance
+

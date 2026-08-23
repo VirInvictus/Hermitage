@@ -1,3 +1,8 @@
+## v1.1.0 (2026-08-23)
+
+### Changed
+- Switched search backend to the shared `cquarry` package, replacing the hand-rolled implementation and guaranteeing query parity with the Calibre CLI toolkit.
+
 # Hermitage — Patch Notes
 
 

@@ -23,7 +23,7 @@ from hermitage.database import (
 )
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
-from hermitage.search import filter_books
+from hermitage.database import get_cquarry_db
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import (
     get_cached_texture,
@@ -1163,19 +1163,6 @@ class HermitageApp(Gtk.Application):
         win._series_browser.on_search = _series_search
 
         # Left sidebar: virtual library list
-        vl_defs = load_virtual_libraries()
-        win._vl_defs = vl_defs
-        vl_cache: dict[str, object] = {}
-
-        def _vl_resolver(name: str):
-            from hermitage.search import parse_query as _parse
-
-            if name not in vl_cache:
-                expr_str = vl_defs.get(name)
-                vl_cache[name] = _parse(expr_str) if expr_str else None
-            return vl_cache.get(name)
-
-        win._vl_resolver = _vl_resolver
 
         vl_sidebar = self._build_vl_sidebar(win)
         vl_sidebar.add_css_class("sidebar-panel")
@@ -1345,8 +1332,10 @@ class HermitageApp(Gtk.Application):
                 return GLib.SOURCE_REMOVE
 
             HermitageApp._save_scroll_if_unfiltered(win)
-            matched = filter_books(text, win._books, win._vl_resolver)
-            matching_ids = {b.id for b in matched}
+            try:
+                matching_ids = get_cquarry_db().search(text)
+            except Exception:
+                matching_ids = {b.id for b in win._books}
             win._filter.set_filter_func(
                 lambda item: item.book.id in matching_ids,
             )

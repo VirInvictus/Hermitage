@@ -11,7 +11,7 @@
 ## 2. Technical Stack
 - **Frameworks:** GTK 4 only (PyGObject). **No libadwaita.** The GNOME identity layer (the adwaita stylesheet, the adaptive widgets, `Adw.StyleManager`) is dropped in favour of plain GTK 4 widgets and a stylesheet Hermitage owns outright. A small `hermitage/widgets.py` supplies the owned successors to the adwaita widgets that earned their keep: a width-clamping `Clamp`, a `WindowTitle`, a `ToastOverlay`, and a `status_page` composite.
 - **Graphics Engine:** GTK 4.22+ utilizing `Gtk.Snapshot` for custom blur effects and the `GtkSvg` native renderer for iconography.
-- **Database:** SQLite3 using `mode=ro` (Immutable) and FTS5 for instant full-text search.
+- **Database:** Shared `cquarry` backend engine for canonical Calibre metadata.db read access and search evaluation.
 - **Concurrency:** Python 3.14 sub-interpreters or TaskGroups for non-blocking cover fetching and color extraction.
 
 ## 2a. Design Language (Hyprland-native)
