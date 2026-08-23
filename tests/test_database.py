@@ -70,8 +70,7 @@ CREATE TABLE custom_column_3 (id INTEGER PRIMARY KEY, book INTEGER, value TEXT);
 def _reset_module_state():
     database._library_root_cache = None
     database._custom_columns_cache = None
-    database._cleanup_snapshot()
-    database._snapshot_notified = False
+    database._cquarry_db_instance = None
 
 
 class _FixtureBase(unittest.TestCase):
@@ -237,25 +236,6 @@ class TestLoadLibrary(_FixtureBase):
 class TestVirtualLibraries(_FixtureBase):
     def test_load(self):
         self.assertEqual(load_virtual_libraries(), {"Fantasy": 'tags:"Fic.Fantasy"'})
-
-
-class TestLockedFallback(_FixtureBase):
-    def test_snapshot_when_locked(self):
-        # An EXCLUSIVE transaction makes even mode=ro reads fail with
-        # "database is locked" — load_library must fall back to a snapshot.
-        locker = sqlite3.connect(self.db_path)
-        locker.execute("BEGIN EXCLUSIVE")
-        try:
-            books = load_library()
-            self.assertEqual(len(books), 2)
-            self.assertIsNotNone(database._snapshot_path)
-            snapshot = database._snapshot_path
-            self.assertTrue(Path(snapshot).is_file())
-        finally:
-            locker.rollback()
-            locker.close()
-        database._cleanup_snapshot()
-        self.assertFalse(Path(snapshot).exists())
 
 
 class TestPathResolution(unittest.TestCase):
