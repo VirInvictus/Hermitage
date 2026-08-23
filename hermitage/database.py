@@ -124,17 +124,19 @@ def load_custom_columns() -> list[CustomColumn]:
     global _custom_columns_cache
     if _custom_columns_cache is not None:
         return _custom_columns_cache
-        
+
     db = get_cquarry_db()
     _custom_columns_cache = []
     for col in db.get_custom_columns().values():
-        _custom_columns_cache.append(CustomColumn(
-            id=col["id"],
-            label=col["label"],
-            name=col["name"],
-            datatype=col["datatype"],
-            is_multiple=col["is_multiple"],
-        ))
+        _custom_columns_cache.append(
+            CustomColumn(
+                id=col["id"],
+                label=col["label"],
+                name=col["name"],
+                datatype=col["datatype"],
+                is_multiple=col["is_multiple"],
+            )
+        )
     return _custom_columns_cache
 
 
@@ -143,18 +145,16 @@ def load_library() -> list[Book]:
     global _library_root_cache
     _library_root_cache = _resolve_library_path().parent
     db = get_cquarry_db()
-    
+
     custom_cols = load_custom_columns()
-    custom_values = {
-        col.label: db.load_custom_column(col.name) for col in custom_cols
-    }
+    custom_values = {col.label: db.load_custom_column(col.name) for col in custom_cols}
 
     # Bulk-load identifiers and comments directly via cquarry's connection
     by_book: dict[int, dict[str, str]] = {}
     cur = db.conn.cursor()
     for row in cur.execute("SELECT book, type, val FROM identifiers"):
         by_book.setdefault(row["book"], {})[row["type"]] = row["val"]
-        
+
     comments_by_book: dict[int, str] = {}
     try:
         for row in cur.execute("SELECT book, text FROM comments"):
@@ -168,7 +168,7 @@ def load_library() -> list[Book]:
             for col in custom_cols
             if book_id in custom_values[col.label]
         }
-        
+
     def _split(s: str | None) -> list[str]:
         return [p.strip() for p in s.split(",")] if s else []
 
@@ -178,8 +178,10 @@ def load_library() -> list[Book]:
         # (e.g. "Le Guin| Ursula K."); restore them for display.
         authors_list = []
         if b["authors"]:
-            authors_list = [a.strip().replace("|", ",") for a in b["authors"].split(",")]
-            
+            authors_list = [
+                a.strip().replace("|", ",") for a in b["authors"].split(",")
+            ]
+
         books.append(
             Book(
                 id=b["id"],
@@ -206,6 +208,7 @@ def load_library() -> list[Book]:
 # ---------------------------------------------------------------------------
 # Virtual Libraries
 # ---------------------------------------------------------------------------
+
 
 def load_virtual_libraries() -> dict[str, str]:
     """Read virtual library definitions from the Calibre preferences table.
