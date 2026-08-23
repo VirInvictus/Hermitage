@@ -163,11 +163,15 @@ def load_library() -> list[Book]:
         pass
 
     def _custom_for(book_id: int) -> dict[str, str | list[str]]:
-        return {
-            col.label: custom_values[col.label][book_id]
-            for col in custom_cols
-            if book_id in custom_values[col.label]
-        }
+        res: dict[str, str | list[str]] = {}
+        for col in custom_cols:
+            if book_id in custom_values[col.label]:
+                val = custom_values[col.label][book_id]
+                if col.is_multiple and isinstance(val, str):
+                    res[col.label] = _split(val)
+                else:
+                    res[col.label] = val
+        return res
 
     def _split(s: str | None) -> list[str]:
         return [p.strip() for p in s.split(",")] if s else []
