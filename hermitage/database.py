@@ -6,6 +6,7 @@ import os
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from cquarry.db import CalibreDB
 
 
