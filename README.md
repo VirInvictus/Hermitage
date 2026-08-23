@@ -37,7 +37,7 @@ Hermitage requires **Python 3.14+** and **GTK 4.22+**.
 
 ```bash
 # Install dependencies
-pip install PyGObject Pillow PyYAML
+pip install PyGObject Pillow PyYAML cquarry
 
 # Run first-run wizard
 python -m hermitage
@@ -65,7 +65,7 @@ Top-level categories appear as cards. Mid-level branches appear as labeled subse
 **Python 3.14+** with:
 
 ```
-pip install PyGObject Pillow PyYAML
+pip install PyGObject Pillow PyYAML cquarry
 ```
 
 **System libraries:**
@@ -155,7 +155,6 @@ hermitage/
   config.py         # YAML config load/save (~/.config/hermitage/config.yaml)
   genres.py         # Genre browser: recursive tag hierarchy with cards and pills
   preferences.py    # Plain Gtk.Window preferences (boxed-list, dropdown, switch)
-  search.py         # Recursive descent parser for Calibre search query language
   wizard.py         # First-run setup wizard with Calibre folder picker
   database.py       # Read-only Calibre metadata.db parser, virtual library loader
   thumbnailer.py    # Per-scale thumbnail disk cache + 512-entry in-memory texture LRU
@@ -166,7 +165,7 @@ hermitage/
 
 ## Stack
 
-- **Python 3.14** -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
+- **Python 3.14** with `cquarry` -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
 - **GTK 4.22** (no libadwaita) -- plain GTK 4 with an owned stylesheet, Hyprland-native; overlay `Gtk.Revealer` sidebars, a width-clamping widget, and portal-based follow-system dark/light in place of the adwaita equivalents
 - **SQLite3** in `mode=ro` -- immutable read-only access to Calibre's database
 - **Pillow** -- thumbnailing (LANCZOS), hero blur (GaussianBlur r30), color quantization (median-cut)

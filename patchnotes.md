@@ -1,8 +1,11 @@
+# Hermitage — Patch Notes
+
 ## v1.1.0 (2026-08-23)
 
-### Changed
-- Switched search backend to the shared `cquarry` package, replacing the hand-rolled implementation and guaranteeing query parity with the Calibre CLI toolkit.
-
+### Core Integration
+- **cquarry Shared Backend:** Ripped out the custom, hand-rolled Calibre database connection and search parser from `hermitage/database.py` and `hermitage/search.py`. Hermitage now uses the `cquarry` library as its single source of truth for all Calibre data.
+- **Search Grammar Parity:** By adopting `cquarry.db.CalibreDB.search()`, Hermitage natively supports every Calibre search feature (implicit ANDs, regex, date math, custom columns, identifiers, nested Virtual Libraries) rather than its previous limited subset.
+- **Dependency Update:** Added `cquarry` to the required packages.
 # Hermitage — Patch Notes
 
 

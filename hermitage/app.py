@@ -19,7 +19,6 @@ from hermitage.database import (
     Book,
     load_custom_columns,
     load_library,
-    load_virtual_libraries,
 )
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser

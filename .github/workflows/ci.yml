@@ -37,6 +37,7 @@ jobs:
         run: |
           python3 -m venv /venv
           /venv/bin/pip install --upgrade pip
+          /venv/bin/pip install "git+https://github.com/VirInvictus/cquarry.git@main"
           /venv/bin/pip install ruff==0.15.20 .
 
       - name: ruff check

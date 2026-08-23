@@ -77,7 +77,7 @@
 - [x] **AppStream metadata:** `io.github.virinvictus.hermitage.metainfo.xml` with release notes and OARS content rating for software center listings. Screenshots TODO once the icon and a release build are ready. (Validated by `appstreamcli`.)
 - [x] **Flatpak manifest:** `io.github.virinvictus.hermitage.yml` targeting the GNOME 50 runtime. Bundle all Python dependencies. Test on a clean system. (Builds end-to-end with `flatpak-builder`; bundled `hermitage-verify` reads the host library through the sandbox in <200 ms.)
 - [x] **Final testing:** Full regression pass on a 4,000+ book library. Verify every feature end-to-end: first-run wizard, search, VL sidebar, codex, read button, sort options, reading history, placeholder covers, breakpoints.
-- [ ] **Version 1.0.0:** Bump version, write release patchnotes, tag the release, publish Flatpak and PyPI package.
+- [x] **Version 1.0.0:** Bump version, write release patchnotes, tag the release, publish Flatpak and PyPI package.
 
 ## Phase 11: CalibreQuarry Feature Port
 

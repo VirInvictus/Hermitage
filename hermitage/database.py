@@ -404,8 +404,11 @@ def load_virtual_libraries() -> dict[str, str]:
         pass
     return {}
 
+
 from cquarry.db import CalibreDB
+
 _cquarry_db_instance = None
+
 
 def get_cquarry_db() -> CalibreDB:
     global _cquarry_db_instance
@@ -413,4 +416,3 @@ def get_cquarry_db() -> CalibreDB:
         db_path = _resolve_library_path()
         _cquarry_db_instance = CalibreDB(str(db_path))
     return _cquarry_db_instance
-
