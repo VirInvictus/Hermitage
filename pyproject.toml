@@ -19,7 +19,7 @@ dependencies = [
     "PyGObject >= 3.54",
     "Pillow >= 11.0",
     "PyYAML >= 6.0",
-    "cquarry",
+    "cquarry @ git+https://github.com/VirInvictus/cquarry.git",
 ]
 
 [project.scripts]
