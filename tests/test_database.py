@@ -26,7 +26,8 @@ CREATE TABLE books (
     has_cover INTEGER DEFAULT 0,
     series_index REAL DEFAULT 1.0,
     pubdate TEXT,
-    timestamp TEXT
+    timestamp TEXT,
+    last_modified TEXT
 );
 CREATE TABLE authors (id INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE books_authors_link (
