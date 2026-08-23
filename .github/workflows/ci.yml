@@ -18,6 +18,7 @@ jobs:
       - name: Install system + build dependencies
         run: |
           dnf install -y \
+            git \
             gcc \
             python3 \
             python3-devel \
