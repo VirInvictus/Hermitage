@@ -21,6 +21,7 @@ CREATE TABLE books (
     id INTEGER PRIMARY KEY,
     title TEXT,
     sort TEXT,
+    author_sort TEXT,
     path TEXT,
     has_cover INTEGER DEFAULT 0,
     series_index REAL DEFAULT 1.0,
