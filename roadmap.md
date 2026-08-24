@@ -147,3 +147,20 @@ With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegate
 - **JIT Single-Entity Fetching:** Transition to `get_book(book_id)` for detailed views, eliminating the memory overhead of loading full metadata for every book in the library at startup.
 - **Reading Progress Tracking:** Map `last_read_positions` parsed by `cquarry` to render a visual progress bar indicating how far along the user is on their e-reader.
 - **E-Reader Annotations:** Render e-reader highlights and annotations directly within Hermitage's Book Details pane, powered by `cquarry`'s FTS5 integration.
+
+## Phase 15: Codebase Sweep & Fixes (2026-08-23)
+*Context: Found fatal uninitialized UI variables, data loss on export, and theme application bugs.*
+
+### Bugs to Fix
+- [ ] **Fatal Startup Crash:** Initialize `win._vl_defs = load_virtual_libraries()` in `_load_library` to prevent the UI from permanently crashing on the loading spinner.
+- [ ] **Synopsis Obliteration:** Replace block-level HTML tags (`<p>`, `<br>`) with newlines in `_clean_html()` before stripping to prevent wall-of-text formatting.
+- [ ] **Custom Column Data Loss:** Include the `custom` field in `_book_to_dict` and CSV fieldnames so exports don't silently drop custom columns.
+- [ ] **Theme Override Bug:** Update `_query_dark` to default to dark mode when the portal returns `0` (no preference), instead of forcing light mode.
+- [ ] **Missing Escape Dismissal:** Add an `EventControllerKey` to `InsightsWindow` to allow closing via the Escape key, matching other modals.
+- [ ] **Rating Precision Loss:** Replace floor division (`//`) with float division (`/`) when averaging ratings in `InsightsWindow`.
+
+### Refactoring & Growth
+- [ ] **Async UI File I/O:** Offload `b.cover_path.is_file()` checks in Insights to a background thread to prevent UI freezing on huge libraries.
+- [ ] **JIT Single-Entity Loading:** Delay full comment and metadata loading until Codex activation for near-instant 50k+ book startup times.
+- [ ] **Multi-Format Codex Selection:** Add dropdown UI for books with multiple formats (EPUB/PDF/CBZ) instead of forcing the first match.
+- [ ] **Docs Sync:** Correct `README.md` missing modules, add all keyboard shortcuts to the table, and fix the `CLAUDE.md` test suite count.
