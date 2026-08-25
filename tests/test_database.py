@@ -76,9 +76,15 @@ CREATE TABLE annotations (
     annot_id TEXT, annot_type TEXT, annot_data TEXT
 );
 CREATE TABLE last_read_positions (
-    book INTEGER, user_type TEXT, user TEXT, device TEXT,
-    cfi TEXT, pos_frac REAL, epoch_time REAL,
-    PRIMARY KEY (book, user_type, user, device)
+    id INTEGER PRIMARY KEY,
+    book INTEGER NOT NULL,
+    format TEXT NOT NULL COLLATE NOCASE,
+    user TEXT NOT NULL,
+    device TEXT NOT NULL,
+    cfi TEXT NOT NULL,
+    epoch REAL NOT NULL,
+    pos_frac REAL NOT NULL DEFAULT 0,
+    UNIQUE(user, device, book, format)
 );
 """
 
@@ -198,8 +204,9 @@ class _FixtureBase(unittest.TestCase):
             "  'a1', 'highlight', '{\"text\": \"wise\"}')"
         )
         conn.execute(
-            "INSERT INTO last_read_positions VALUES"
-            " (1, 'local', 'reader', 'kobo', 'epubcfi(/6/4)', 0.42, 100)"
+            "INSERT INTO last_read_positions (book, format, user, device, cfi, epoch, pos_frac) VALUES"
+            " (1, 'EPUB', 'reader', 'kobo', 'epubcfi(/6/4)', 100, 0.42),"
+            " (1, 'EPUB', 'reader', 'phone', 'epubcfi(/6/9)', 200, 0.90)"
         )
         # Custom columns — three shapes: a single-valued normalized enumeration,
         # a multi-valued normalized text column, and a directly-stored datetime.
@@ -360,7 +367,8 @@ class TestAnnotationsAndProgress(_FixtureBase):
         self.assertEqual(database.get_annotations(2), [])
 
     def test_get_reading_progress(self):
-        self.assertAlmostEqual(database.get_reading_progress(1), 0.42)
+        # phone carries the later epoch; the wrapper must pick it
+        self.assertAlmostEqual(database.get_reading_progress(1), 0.90)
         self.assertIsNone(database.get_reading_progress(2))
 
 

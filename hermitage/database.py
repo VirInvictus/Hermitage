@@ -253,6 +253,7 @@ def get_reading_progress(book_id: int) -> float | None:
     rows = get_cquarry_db().get_last_read_positions(book_id)
     if not rows:
         return None
-    latest = max(rows, key=lambda r: r.get("epoch_time") or 0)
+    # Real schema: the recency column is `epoch` (unix seconds).
+    latest = max(rows, key=lambda r: r.get("epoch") or 0)
     frac = latest.get("pos_frac")
     return float(frac) if frac is not None else None
