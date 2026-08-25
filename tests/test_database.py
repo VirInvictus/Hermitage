@@ -70,6 +70,16 @@ CREATE TABLE books_custom_column_2_link (
 );
 -- col 3 (date_read): stored directly — a `book` column, no link table
 CREATE TABLE custom_column_3 (id INTEGER PRIMARY KEY, book INTEGER, value TEXT);
+CREATE TABLE annotations (
+    id INTEGER PRIMARY KEY, book INTEGER, format TEXT,
+    user_type TEXT, user TEXT, timestamp TEXT,
+    annot_id TEXT, annot_type TEXT, annot_data TEXT
+);
+CREATE TABLE last_read_positions (
+    book INTEGER, user_type TEXT, user TEXT, device TEXT,
+    cfi TEXT, pos_frac REAL, epoch_time REAL,
+    PRIMARY KEY (book, user_type, user, device)
+);
 """
 
 
@@ -169,6 +179,27 @@ class _FixtureBase(unittest.TestCase):
         conn.execute(
             "INSERT INTO preferences(key, val) VALUES ('virtual_libraries', ?)",
             (json.dumps({"Fantasy": 'tags:"Fic.Fantasy"'}),),
+        )
+        conn.execute(
+            "INSERT INTO preferences(key, val) VALUES ('saved_searches', ?)",
+            (json.dumps({"Funny": "tags:Humour"}),),
+        )
+        conn.execute(
+            "INSERT INTO preferences(key, val) VALUES ('virt_libs_hidden', ?)",
+            (json.dumps(["Fantasy"]),),
+        )
+        conn.execute(
+            "INSERT INTO preferences(key, val) VALUES ('virt_libs_order', ?)",
+            (json.dumps({"Fantasy": 0}),),
+        )
+        conn.execute(
+            "INSERT INTO annotations VALUES"
+            " (1, 1, 'EPUB', 'local', 'reader', '2026-01-02T00:00:00',"
+            "  'a1', 'highlight', '{\"text\": \"wise\"}')"
+        )
+        conn.execute(
+            "INSERT INTO last_read_positions VALUES"
+            " (1, 'local', 'reader', 'kobo', 'epubcfi(/6/4)', 0.42, 100)"
         )
         # Custom columns — three shapes: a single-valued normalized enumeration,
         # a multi-valued normalized text column, and a directly-stored datetime.
@@ -294,6 +325,43 @@ class TestCustomColumns(_FixtureBase):
         self.assertIsNotNone(database._custom_columns_cache)
         labels = {c.label for c in database.load_custom_columns()}
         self.assertEqual(labels, {"status", "translators", "date_read"})
+
+
+class TestSavedSearchesAndUiState(_FixtureBase):
+    """cquarry-backed saved searches and Calibre sidebar layout state."""
+
+    def test_load_saved_searches(self):
+        self.assertEqual(database.load_saved_searches(), {"Funny": "tags:Humour"})
+
+    def test_load_vl_ui_state(self):
+        state = database.load_vl_ui_state()
+        self.assertEqual(state["hidden"], ["Fantasy"])
+        self.assertEqual(state["order"], {"Fantasy": 0})
+
+    def test_defaults_when_preferences_absent(self):
+        # A library without the UI-state keys yields empty defaults.
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("DELETE FROM preferences WHERE key LIKE 'virt_libs%'")
+        conn.execute("DELETE FROM preferences WHERE key = 'saved_searches'")
+        conn.commit()
+        conn.close()
+        database._cquarry_db_instance = None
+        self.assertEqual(database.load_saved_searches(), {})
+        self.assertEqual(database.load_vl_ui_state(), {"hidden": [], "order": {}})
+
+
+class TestAnnotationsAndProgress(_FixtureBase):
+    """Annotation extraction and reading-progress helpers."""
+
+    def test_get_annotations_decodes_payload(self):
+        notes = database.get_annotations(1)
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0]["annot_data"], {"text": "wise"})
+        self.assertEqual(database.get_annotations(2), [])
+
+    def test_get_reading_progress(self):
+        self.assertAlmostEqual(database.get_reading_progress(1), 0.42)
+        self.assertIsNone(database.get_reading_progress(2))
 
 
 if __name__ == "__main__":

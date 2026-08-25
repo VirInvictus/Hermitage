@@ -24,13 +24,16 @@ hermitage
 hermitage-verify   # integrity check + path-resolution benchmark, exits non-zero on issues
 ```
 
-The test suite lives in `tests/` (86 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
+The test suite lives in `tests/` (57 stdlib-unittest tests, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Run it with the **system** python or a venv that has PyGObject/PyYAML installed — a bare venv without `gi` will report import errors for the GUI-touching modules. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
 
-System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML`, `cquarry` (declared in `pyproject.toml`).
+System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML`, `cquarry>=1.1` (declared in `pyproject.toml`).
 
 ## Hard constraints
 
-- **The Calibre DB is read-only.** All connections go through `database._connect()`, which opens `file:...?mode=ro`. Do not add write paths and do not modify anything under `/home/bdkl/docs/Calibre Library/`. The test library lives there with 4,000+ books.
+- **The Calibre DB is read-only.** All connections go through `database.get_cquarry_db()`, which opens via cquarry's read-only URI. Do not add write paths and do not modify anything under `/home/bdkl/docs/Calibre Library/`. The test library lives there with 4,000+ books.
+- **cquarry ≥1.1 field contract:** `get_all_books()` rows expose `authors`, `tags`, `languages`, `formats` as native `list[str]`. Never `.split(",")` them; author names may contain literal commas. The only legacy transform still applied is restoring Calibre's historical `|` pipe-escaped comma in author display names (`database.load_library`).
+- **Sidebar wiring:** `win._vl_defs` is populated in `app._load_library()` from `load_virtual_libraries()`; `_build_vl_sidebar` applies Calibre's stored order/hidden state via `database.load_vl_ui_state()`. Saved-search rows carry the sentinel `__saved__:<name>` on `row._vl_name` and are expanded to `search:"<name>"` in `_on_vl_activated`.
+- **Ratings render through cquarry:** use `normalize_rating()` (from `cquarry.helpers`) for star conversion — no local `/2` integer division; half-stars are expected.
 - **Library path resolution precedence** (`database._resolve_library_path`): `HERMITAGE_DB` env var → `library_path` in `~/.config/hermitage/config.yaml` → raise `FileNotFoundError` so `app.do_activate` can launch the first-run wizard. Preserve this order.
 - **Caches are user-scoped, not repo-scoped:** `~/.cache/hermitage/{thumbs,colors,blur}/`. Safe to delete by hand for testing; the app regenerates them.
 

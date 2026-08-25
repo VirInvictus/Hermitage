@@ -1,5 +1,15 @@
 # Hermitage — Patch Notes
 
+## v1.3.0 (2026-08-25)
+
+### cquarry 1.1.0 Adoption
+- **List-typed fields:** `load_library()` now consumes the native `list[str]` `authors`/`tags`/`formats` arrays that cquarry ≥1.1 exposes instead of comma-splitting strings. Author names containing literal commas ("Strunk, Jr.") no longer split in half; the historical `|` pipe-escape is still restored for display.
+- **Half-star ratings:** The Codex rating row uses cquarry's `normalize_rating()` upstream conversion, so a Calibre rating of 5/10 renders as ★★½ instead of being truncated down by integer division.
+- **Saved Searches sidebar:** A second sidebar section under "Libraries" lists Calibre's saved searches (from `preferences.saved_searches`). Clicking one runs it through cquarry's `search:"Name"` interpolation.
+- **Calibre-exact tab layout:** The virtual-library sidebar now honors Calibre's own stored ordering (`virt_libs_order`) and hidden list (`virt_libs_hidden`) via `database.load_vl_ui_state()`, so Hermitage's Libraries panel mirrors the desktop GUI exactly.
+- **Annotations & reading progress:** New wrappers `database.get_annotations(book_id)` and `database.get_reading_progress(book_id)` expose e-reader highlights and per-device progress fractions for UI consumption.
+- **Fixed:** `_build_vl_sidebar` referenced `win._vl_defs` without it ever being assigned (latent AttributeError on first Ctrl+L). It is now populated during `_load_library()`.
+
 ## v1.1.0 (2026-08-23)
 
 ### Core Integration

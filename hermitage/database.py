@@ -178,13 +178,11 @@ def load_library() -> list[Book]:
 
     books: list[Book] = []
     for b in db.get_all_books():
-        # Calibre stores commas inside author names as '|'
-        # (e.g. "Le Guin| Ursula K."); restore them for display.
-        authors_list = []
-        if b["authors"]:
-            authors_list = [
-                a.strip().replace("|", ",") for a in b["authors"].split(",")
-            ]
+        # cquarry exposes authors/tags/formats as native lists (names with
+        # literal commas survive intact). Calibre historically stored a comma
+        # inside author names as '|' (e.g. "Le Guin| Ursula K."); restore the
+        # comma for display.
+        authors_list = [a.strip().replace("|", ",") for a in (b["authors"] or [])]
 
         books.append(
             Book(
@@ -197,9 +195,9 @@ def load_library() -> list[Book]:
                 series=b["series"],
                 series_index=b["series_index"] or 1.0,
                 rating=b["rating"],
-                tags=_split(b["tags"]),
+                tags=list(b["tags"] or []),
                 comment=comments_by_book.get(b["id"]),
-                formats=_split(b["formats"]),
+                formats=list(b["formats"] or []),
                 pubdate=b["pubdate"],
                 timestamp=b["timestamp"],
                 identifiers=by_book.get(b["id"], {}),
@@ -220,3 +218,41 @@ def load_virtual_libraries() -> dict[str, str]:
     Returns a dict mapping library name -> Calibre search expression.
     """
     return get_cquarry_db().get_virtual_libraries()
+
+
+def load_saved_searches() -> dict[str, str]:
+    """Read named saved searches from the Calibre preferences table.
+
+    These power search-bar interpolation via ``search:"Name"`` and can back a
+    sidebar section alongside virtual libraries.
+    """
+    return get_cquarry_db().get_saved_searches()
+
+
+def load_vl_ui_state() -> dict:
+    """Return Calibre's own sidebar layout state for virtual libraries.
+
+    ``{"hidden": [...], "order": {...}}`` — use it to hide and order tabs
+    exactly as the user's Calibre GUI does.
+    """
+    return get_cquarry_db().get_vl_ui_state()
+
+
+# ---------------------------------------------------------------------------
+# Annotations & reading progress
+# ---------------------------------------------------------------------------
+
+
+def get_annotations(book_id: int) -> list[dict]:
+    """E-reader highlights/bookmarks/notes recorded by Calibre's drivers."""
+    return get_cquarry_db().get_annotations(book_id)
+
+
+def get_reading_progress(book_id: int) -> float | None:
+    """Most recent reading progress fraction (0.0-1.0), or None."""
+    rows = get_cquarry_db().get_last_read_positions(book_id)
+    if not rows:
+        return None
+    latest = max(rows, key=lambda r: r.get("epoch_time") or 0)
+    frac = latest.get("pos_frac")
+    return float(frac) if frac is not None else None

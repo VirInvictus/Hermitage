@@ -12,6 +12,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 
+from cquarry.helpers import normalize_rating
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from hermitage import widgets
@@ -374,10 +375,16 @@ class CodexView(Gtk.Box):
         else:
             self._series_btn.set_visible(False)
 
-        # Rating (Calibre stores 0-10, display as 5-star)
+        # Rating (Calibre stores 0-10, display as 5-star with half stars)
         if book.rating:
-            full = book.rating // 2
-            stars = "\u2605" * full + "\u2606" * (5 - full)
+            stars_val = normalize_rating(book.rating) or 0.0
+            full = int(stars_val)
+            half = stars_val - full >= 0.5
+            stars = (
+                "\u2605" * full
+                + ("\u00bd" if half else "")
+                + "\u2606" * (5 - full - (1 if half else 0))
+            )
             self._rating_label.set_text(stars)
             self._rating_label.set_visible(True)
         else:

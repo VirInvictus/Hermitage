@@ -19,6 +19,9 @@ from hermitage.database import (
     Book,
     load_custom_columns,
     load_library,
+    load_saved_searches,
+    load_virtual_libraries,
+    load_vl_ui_state,
 )
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
@@ -930,6 +933,9 @@ class HermitageApp(Gtk.Application):
             return GLib.SOURCE_REMOVE
 
         win._books = books
+        # Virtual-library definitions + Calibre's own sidebar layout state
+        # (order/hidden), consumed by _build_vl_sidebar.
+        win._vl_defs = load_virtual_libraries()
         win._codex.set_custom_columns(load_custom_columns())
 
         grid = self._build_grid(win, books)
@@ -1225,6 +1231,12 @@ class HermitageApp(Gtk.Application):
         if vl_name == "__recent__":
             HermitageApp._apply_recently_read(win)
             return
+        if isinstance(vl_name, str) and vl_name.startswith("__saved__:"):
+            # Saved-search rows interpolate through cquarry's search grammar.
+            saved_name = vl_name.removeprefix("__saved__:")
+            win._search_entry.set_text(f'search:"{saved_name}"')
+            win._search_btn.set_active(True)
+            return
         if vl_name is None:
             # Reset directly instead of relying on the search-changed signal:
             # set_text("") emits nothing when the entry is already empty
@@ -1412,7 +1424,13 @@ class HermitageApp(Gtk.Application):
     # -- builders -----------------------------------------------------------
 
     def _build_vl_sidebar(self, win: Gtk.ApplicationWindow) -> Gtk.Widget:
-        """Build the virtual library sidebar list."""
+        """Build the virtual library sidebar list.
+
+        Mirrors the user's Calibre GUI: libraries hidden via Calibre's
+        ``virt_libs_hidden`` are skipped, and tabs follow the stored
+        ``virt_libs_order`` before falling back to alphabetical. A second
+        section lists saved searches (``search:"Name"``).
+        """
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         vl_header = Gtk.Label(label="Libraries", xalign=0)
@@ -1433,7 +1451,22 @@ class HermitageApp(Gtk.Application):
         # Synthetic "Recently Read" row — sentinel handled in _on_vl_activated
         listbox.append(self._make_vl_row("Recently Read", "__recent__"))
 
-        for name in sorted(win._vl_defs.keys()):
+        ui_state = load_vl_ui_state()
+        hidden = {str(h).lower() for h in ui_state.get("hidden", [])}
+        order = ui_state.get("order") or {}
+
+        def _vl_sort_key(name: str):
+            # Stored Calibre tab position first, then anything new alphabetically.
+            for k, pos in order.items():
+                if str(k).lower() == name.lower():
+                    try:
+                        return (0, float(pos), name.lower())
+                    except (TypeError, ValueError):
+                        return (1, 0.0, name.lower())
+            return (1, 0.0, name.lower())
+
+        visible = [n for n in win._vl_defs if n.lower() not in hidden]
+        for name in sorted(visible, key=_vl_sort_key):
             listbox.append(self._make_vl_row(name, name))
 
         listbox.select_row(all_row)
@@ -1443,6 +1476,31 @@ class HermitageApp(Gtk.Application):
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_child(listbox)
         box.append(scrolled)
+
+        # Saved searches section — same activation path, `search:"Name"`.
+        saved = load_saved_searches()
+        if saved:
+            ss_header = Gtk.Label(label="Saved Searches", xalign=0)
+            ss_header.add_css_class("codex-section-title")
+            ss_header.set_margin_start(16)
+            ss_header.set_margin_top(16)
+            ss_header.set_margin_bottom(8)
+            box.append(ss_header)
+
+            ss_listbox = Gtk.ListBox()
+            ss_listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            ss_listbox.add_css_class("navigation-sidebar")
+            for name in sorted(saved.keys()):
+                ss_listbox.append(self._make_vl_row(name, f"__saved__:{name}"))
+            ss_listbox.connect("row-activated", self._on_vl_activated, win)
+
+            ss_scrolled = Gtk.ScrolledWindow(
+                max_content_height=220,
+                propagate_natural_height=False,
+            )
+            ss_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            ss_scrolled.set_child(ss_listbox)
+            box.append(ss_scrolled)
 
         return box
 
