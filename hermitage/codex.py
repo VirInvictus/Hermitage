@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -16,7 +17,7 @@ from cquarry.helpers import normalize_rating
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from hermitage import widgets
-from hermitage.database import Book, CustomColumn, library_root
+from hermitage.database import Book, CustomColumn, get_cquarry_db, library_root
 from hermitage.thumbnailer import get_cached_texture, request_texture
 
 # ---------------------------------------------------------------------------
@@ -115,21 +116,34 @@ _IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
 
 
 def _find_format_file(book: Book) -> Path | None:
-    """Locate the best readable file for a book, preferring EPUB > PDF > etc."""
-    root = library_root()
-    book_dir = root / book.path
+    """Locate the best readable file for a book, preferring EPUB > PDF > etc.
+
+    Exact paths come from cquarry's get_formats() (the canonical storage
+    layout); the historical directory glob remains as a fallback for
+    databases whose catalogued rows lag the files on disk.
+    """
+    try:
+        fmt_map = get_cquarry_db().get_formats(book.id)
+    except Exception:
+        fmt_map = {}
 
     for fmt in _FORMAT_PRIORITY:
         if fmt in book.formats:
-            candidates = list(book_dir.glob(f"*.{fmt.lower()}"))
+            entry = fmt_map.get(fmt)
+            if entry and os.path.exists(entry["path"]):
+                return Path(entry["path"])
+            candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
             if not candidates:
-                candidates = list(book_dir.glob(f"*.{fmt}"))
+                candidates = list((library_root() / book.path).glob(f"*.{fmt}"))
             if candidates:
                 return candidates[0]
 
     # Fallback: try any format present
     for fmt in book.formats:
-        candidates = list(book_dir.glob(f"*.{fmt.lower()}"))
+        entry = fmt_map.get(fmt)
+        if entry and os.path.exists(entry["path"]):
+            return Path(entry["path"])
+        candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
         if candidates:
             return candidates[0]
 
@@ -442,11 +456,15 @@ class CodexView(Gtk.Box):
             self._synopsis_header.set_visible(False)
             self._synopsis.set_visible(False)
 
-        # Formats
+        # Formats & page count (pages come from Calibre's native
+        # books_pages_link via cquarry >=1.3)
+        meta_bits: list[str] = []
         if book.formats:
-            self._formats_label.set_text(
-                "Formats:  " + "  \u00b7  ".join(book.formats),
-            )
+            meta_bits.append("Formats:  " + "  \u00b7  ".join(book.formats))
+        if book.pages:
+            meta_bits.append(f"{book.pages} pages")
+        if meta_bits:
+            self._formats_label.set_text("   \u00b7   ".join(meta_bits))
             self._formats_label.set_visible(True)
         else:
             self._formats_label.set_visible(False)

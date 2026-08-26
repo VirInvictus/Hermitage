@@ -86,6 +86,10 @@ CREATE TABLE last_read_positions (
     pos_frac REAL NOT NULL DEFAULT 0,
     UNIQUE(user, device, book, format)
 );
+CREATE TABLE books_pages_link (
+    book INTEGER NOT NULL, pages INTEGER, algorithm TEXT, format TEXT,
+    format_size INTEGER, timestamp TEXT, needs_scan BOOLEAN DEFAULT 0 NOT NULL
+);
 """
 
 
@@ -157,6 +161,10 @@ class _FixtureBase(unittest.TestCase):
                 (2, "Gaiman| Neil"),
                 (3, "Ursula K. Le Guin"),
             ],
+        )
+        # Native page count for book 1 (cquarry's books_pages_link reader).
+        conn.execute(
+            "INSERT INTO books_pages_link (book, pages, algorithm) VALUES (1, 288, 'demo')"
         )
         conn.executemany(
             "INSERT INTO books_authors_link(id, book, author) VALUES (?,?,?)",
@@ -271,6 +279,12 @@ class TestLoadLibrary(_FixtureBase):
             self.root / "Terry Pratchett/Good Omens (1)" / "cover.jpg",
         )
         self.assertIsNone(by_id[2].cover_path)  # has_cover = 0
+
+    def test_pages_from_native_table(self):
+        # Page counts ride on the Book from cquarry's books_pages_link reader.
+        by_id = {b.id: b for b in load_library()}
+        self.assertEqual(by_id[1].pages, 288)
+        self.assertIsNone(by_id[2].pages)  # no native row for this book
 
     def test_library_root(self):
         load_library()

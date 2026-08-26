@@ -1,5 +1,13 @@
 # Hermitage — Patch Notes
 
+## v1.4.0 (2026-08-26)
+
+### cquarry 1.3.0 Adoption
+- **Page counts in the Codex:** `Book` gains a `pages` field sourced from Calibre's native `books_pages_link` table (cquarry ≥1.3 reads it directly, falling back to a `#pages` custom column on older schemas). The Codex meta row now shows "N pages" beside the formats line.
+- **Canonical cover resolution:** `Book.cover_path` is built through cquarry's `get_cover_path()` instead of hand-assembling `<root>/<path>/cover.jpg`, so the storage-layout logic lives in exactly one place across the ecosystem. Behavior is unchanged (unverified `.jpg` path, `None` when `has_cover=0`); the returned type stays a `Path`.
+- **Exact format-file resolution:** the Codex reader launcher (`_find_format_file`) resolves paths through cquarry's `get_formats(book_id)` first — the catalogued filename stem beats globbing the directory — with the historical glob kept as a fallback for lagging catalogs.
+- **Requires cquarry ≥1.3.**
+
 ## v1.3.0 (2026-08-25)
 
 ### cquarry 1.1.0 Adoption

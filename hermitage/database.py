@@ -27,6 +27,9 @@ class Book:
     pubdate: str | None = None
     timestamp: str | None = None  # date added to Calibre
     identifiers: dict[str, str] = field(default_factory=dict)
+    # Page count from Calibre's native books_pages_link (cquarry >=1.3;
+    # falls back to a #pages custom column on older schemas).
+    pages: int | None = None
     # User-defined Calibre custom columns, keyed by column label (e.g.
     # "reading_status"). Multi-valued text columns hold a list[str]; every
     # other datatype holds a single scalar (str/int/float). Only columns that
@@ -35,10 +38,16 @@ class Book:
 
     @property
     def cover_path(self) -> Path | None:
-        """Absolute path to the cover image, or None."""
+        """Absolute path to the cover image, or None.
+
+        Built through cquarry's get_cover_path() so the storage-layout logic
+        lives in exactly one place across the ecosystem. Unverified on purpose
+        (historical contract): callers already tolerate missing files, and
+        has_cover=0 short-circuits to None without touching the database.
+        """
         if not self.has_cover:
             return None
-        return library_root() / self.path / "cover.jpg"
+        return Path(get_cquarry_db().get_cover_path(self.id, verify=False))
 
 
 @dataclass(slots=True)
@@ -201,6 +210,7 @@ def load_library() -> list[Book]:
                 pubdate=b["pubdate"],
                 timestamp=b["timestamp"],
                 identifiers=by_book.get(b["id"], {}),
+                pages=b.get("pages"),
                 custom=_custom_for(b["id"]),
             )
         )
