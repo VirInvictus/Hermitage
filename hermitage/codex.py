@@ -371,11 +371,27 @@ class CodexView(Gtk.Box):
         """Populate the Codex with a book's details."""
         self._current_book = book
 
-        # Title & Author
-        self._title_label.set_text(book.title)
-        self._author_label.set_text(
-            ", ".join(book.authors) if book.authors else "Unknown Author",
-        )
+        # Title & Author — display names ordered by their true sort keys
+        # (cquarry >=1.4 `author_sorts`), with author links in the tooltip.
+        if book.authors:
+            sorts = book.author_sorts or []
+            links = book.author_links or []
+            paired = [
+                (
+                    name,
+                    sorts[i] if i < len(sorts) else "",
+                    links[i] if i < len(links) else "",
+                )
+                for i, name in enumerate(book.authors)
+            ]
+            # Sort by the true sort key when present, display order otherwise.
+            ordered = sorted(paired, key=lambda p: p[1].lower() or p[0].lower())
+            self._author_label.set_text(", ".join(p[0] for p in ordered))
+            link_bits = [f"{name} — {url}" for name, _, url in ordered if url]
+            if link_bits:
+                self._author_label.set_tooltip_text("\n".join(link_bits))
+        else:
+            self._author_label.set_text("Unknown Author")
 
         # Series
         if book.series:
@@ -561,6 +577,7 @@ class CodexView(Gtk.Box):
                 pill.add_css_class("codex-link-btn")
                 pill.set_tooltip_text(f"Filter library to {col.name}: “{vs}”")
                 pill.connect("clicked", self._on_custom_clicked, col.label, vs)
+                self._apply_enum_color(pill, col, vs)
                 flow.append(pill)
             row.append(flow)
         else:
@@ -572,6 +589,40 @@ class CodexView(Gtk.Box):
             row.append(vlabel)
 
         return row
+
+    _enum_css_provider: Gtk.CssProvider | None = None
+    _enum_classes_issued: set[str] = set()
+
+    @classmethod
+    def _apply_enum_color(cls, pill: Gtk.Button, col: CustomColumn, value: str):
+        """Tint an enumeration pill with its Calibre ``enum_colors`` entry.
+
+        Colors come from the column's ``display`` JSON (cquarry >=1.4). Each
+        distinct value gets one generated CSS class registered once on the
+        default screen; unknown values keep the theme's default pill look.
+        """
+        colors = (col.display or {}).get("enum_colors") or {}
+        color = colors.get(value)
+        if not isinstance(color, str) or not color.startswith("#"):
+            return
+        css_class = "enum-color-" + "".join(
+            c if c.isalnum() else "-" for c in value.lower()
+        )
+        if css_class not in cls._enum_classes_issued:
+            provider = cls._enum_css_provider
+            if provider is None:
+                provider = Gtk.CssProvider()
+                cls._enum_css_provider = provider
+            provider.load_from_string(
+                f".{css_class} {{ background-image: none; background-color: {color}; }}"
+            )
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
+            cls._enum_classes_issued.add(css_class)
+        pill.add_css_class(css_class)
 
     @staticmethod
     def _format_scalar(col: CustomColumn, value) -> str:

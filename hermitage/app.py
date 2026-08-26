@@ -20,6 +20,7 @@ from hermitage.database import (
     load_custom_columns,
     load_library,
     load_saved_searches,
+    load_user_categories,
     load_virtual_libraries,
     load_vl_ui_state,
 )
@@ -1237,6 +1238,24 @@ class HermitageApp(Gtk.Application):
             win._search_entry.set_text(f'search:"{saved_name}"')
             win._search_btn.set_active(True)
             return
+        if isinstance(vl_name, str) and vl_name.startswith("__usercat__:"):
+            # User-category rows expand Calibre's member descriptors into an
+            # OR over their locations (#column or :tags).
+            cat_name = vl_name.removeprefix("__usercat__:")
+            parts = []
+            for member in load_user_categories().get(cat_name, []):
+                value = str(member.get("name") or "").strip()
+                if not value:
+                    continue
+                label = str(member.get("label") or ":tags")
+                if label.startswith("#"):
+                    parts.append(f'{label}:"{value}"')
+                else:
+                    parts.append(f'{label.lstrip(":") or "tags"}:"{value}"')
+            if parts:
+                win._search_entry.set_text(" or ".join(parts))
+                win._search_btn.set_active(True)
+            return
         if vl_name is None:
             # Reset directly instead of relying on the search-changed signal:
             # set_text("") emits nothing when the entry is already empty
@@ -1501,6 +1520,33 @@ class HermitageApp(Gtk.Application):
             ss_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
             ss_scrolled.set_child(ss_listbox)
             box.append(ss_scrolled)
+
+        # User categories section (cquarry >=1.4) — Calibre's hand-built
+        # tag-browser groupings. Activation expands the members into an OR
+        # expression over their locations.
+        user_cats = load_user_categories()
+        if user_cats:
+            uc_header = Gtk.Label(label="User Categories", xalign=0)
+            uc_header.add_css_class("codex-section-title")
+            uc_header.set_margin_start(16)
+            uc_header.set_margin_top(16)
+            uc_header.set_margin_bottom(8)
+            box.append(uc_header)
+
+            uc_listbox = Gtk.ListBox()
+            uc_listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            uc_listbox.add_css_class("navigation-sidebar")
+            for name in sorted(user_cats.keys()):
+                uc_listbox.append(self._make_vl_row(name, f"__usercat__:{name}"))
+            uc_listbox.connect("row-activated", self._on_vl_activated, win)
+
+            uc_scrolled = Gtk.ScrolledWindow(
+                max_content_height=220,
+                propagate_natural_height=False,
+            )
+            uc_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            uc_scrolled.set_child(uc_listbox)
+            box.append(uc_scrolled)
 
         return box
 

@@ -1,5 +1,13 @@
 # Hermitage — Patch Notes
 
+## v1.5.0 (2026-08-26)
+
+### cquarry 1.4.0 Adoption
+- **Author cards by true sort name:** `Book` gains `author_sorts`/`author_links` (cquarry's parallel arrays). The Codex author line now orders multi-author books by their real sort keys and lists author-page URLs in the tooltip.
+- **Colored enumeration badges:** custom-column pills read Calibre's `display.enum_colors` (via cquarry's decoded display config) and tint themselves accordingly — the `#reading_status` showcase column now renders exactly as colored in the desktop GUI.
+- **User Categories sidebar:** a third sidebar section lists Calibre's hand-built tag-browser categories (`user_categories`). Clicking one expands its members into an OR expression over their locations (`#column:"value"` / `tags:"value"`) and runs it through cquarry's grammar.
+- **Requires cquarry ≥1.4.**
+
 ## v1.4.0 (2026-08-26)
 
 ### cquarry 1.3.0 Adoption

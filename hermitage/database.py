@@ -35,6 +35,10 @@ class Book:
     # other datatype holds a single scalar (str/int/float). Only columns that
     # actually have a value for this book appear.
     custom: dict[str, str | list[str]] = field(default_factory=dict)
+    # Per-author true sort keys and link URLs (cquarry >=1.4), each parallel
+    # to `authors`. Empty strings where the library doesn't carry them.
+    author_sorts: list[str] = field(default_factory=list)
+    author_links: list[str] = field(default_factory=list)
 
     @property
     def cover_path(self) -> Path | None:
@@ -59,6 +63,9 @@ class CustomColumn:
     name: str  # display title, e.g. "Status"
     datatype: str  # text, enumeration, datetime, int, float, bool, comments, ...
     is_multiple: bool
+    # Decoded `display` JSON from cquarry >=1.4 (enum_values, enum_colors,
+    # composite_template, ...). {} on schemas predating the column.
+    display: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +151,7 @@ def load_custom_columns() -> list[CustomColumn]:
                 name=col["name"],
                 datatype=col["datatype"],
                 is_multiple=col["is_multiple"],
+                display=col.get("display") or {},
             )
         )
     return _custom_columns_cache
@@ -211,6 +219,8 @@ def load_library() -> list[Book]:
                 timestamp=b["timestamp"],
                 identifiers=by_book.get(b["id"], {}),
                 pages=b.get("pages"),
+                author_sorts=list(b.get("author_sorts") or []),
+                author_links=list(b.get("author_links") or []),
                 custom=_custom_for(b["id"]),
             )
         )
@@ -237,6 +247,16 @@ def load_saved_searches() -> dict[str, str]:
     sidebar section alongside virtual libraries.
     """
     return get_cquarry_db().get_saved_searches()
+
+
+def load_user_categories() -> dict[str, list[dict]]:
+    """User-defined tag-browser categories (cquarry >=1.4).
+
+    Maps category name -> list of members shaped like Calibre's
+    ``user_categories`` preference entries ({``name``: value, ``label``:
+    ``:tags`` or ``#column_label``, ...}).
+    """
+    return get_cquarry_db().get_user_categories()
 
 
 def load_vl_ui_state() -> dict:
