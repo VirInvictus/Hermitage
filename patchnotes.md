@@ -1,5 +1,21 @@
 # Hermitage — Patch Notes
 
+## v1.6.0 (2026-08-26)
+
+### cquarry 1.6.0 Adoption
+- **User Categories search natively through the grammar:** clicking a user-category row now
+  sets `@Name:true` (cquarry ≥1.6's `get_user_category_matches` parity) instead of expanding
+  members into an OR of contains-queries. Results now match Calibre exactly: each member is
+  matched exactly on its own location, so a member "Tor" no longer substring-matches
+  "Tor.com" books. Spaced category names work (upstream's `@...:` lexer word rule).
+- **Runtime library refreshed 1.3.0 → 1.6.0:** brings everything v1.4/v1.5 already
+  documented plus v1.6's fixes — `get_book()`/`get_all_books()` rows are shape-identical
+  (both carry `uuid`, `identifiers`, `size`), languages honor `books_languages_link.item_order`,
+  and the new `get_feeds()` / `get_annotations_dirtied_books()` / `get_tag_browser_counts()`
+  APIs are available (the latter exposes Calibre's own `tag_browser_*` sidebar rollups with
+  `avg_rating` — a candidate for future browse-sidebar count badges).
+- **Requires cquarry ≥1.6.**
+
 ## v1.5.0 (2026-08-26)
 
 ### cquarry 1.4.0 Adoption

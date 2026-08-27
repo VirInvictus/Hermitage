@@ -1239,22 +1239,16 @@ class HermitageApp(Gtk.Application):
             win._search_btn.set_active(True)
             return
         if isinstance(vl_name, str) and vl_name.startswith("__usercat__:"):
-            # User-category rows expand Calibre's member descriptors into an
-            # OR over their locations (#column or :tags).
+            # User-category rows resolve through cquarry >=1.6's native
+            # '@Name' search location — upstream's get_user_category_matches
+            # semantics (exact matching on each member's own location, so
+            # "Tor" no longer substring-matches "Tor.com" books; a leading
+            # '.' would include subcategories; 'false' inverts). Works with
+            # spaces in the category name: cquarry's lexer carries upstream's
+            # '@...:' word rule.
             cat_name = vl_name.removeprefix("__usercat__:")
-            parts = []
-            for member in load_user_categories().get(cat_name, []):
-                value = str(member.get("name") or "").strip()
-                if not value:
-                    continue
-                label = str(member.get("label") or ":tags")
-                if label.startswith("#"):
-                    parts.append(f'{label}:"{value}"')
-                else:
-                    parts.append(f'{label.lstrip(":") or "tags"}:"{value}"')
-            if parts:
-                win._search_entry.set_text(" or ".join(parts))
-                win._search_btn.set_active(True)
+            win._search_entry.set_text(f"@{cat_name}:true")
+            win._search_btn.set_active(True)
             return
         if vl_name is None:
             # Reset directly instead of relying on the search-changed signal:
