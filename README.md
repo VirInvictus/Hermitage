@@ -30,7 +30,7 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 | **Genre Browser** | Recursive tag hierarchy rendered as nested cards and pills. |
 | **Virtual Libraries** | Native support for Calibre's **Virtual Libraries** (Wings) for instant filtering — ordered and hidden exactly as your Calibre GUI arranges them. |
 | **Saved Searches** | Calibre's named saved searches appear in the sidebar; one click runs the query via cquarry's grammar engine. |
-| **User Categories** | Calibre's hand-built tag-browser categories appear as a third sidebar section; one click expands the members into a search across their locations. |
+| **User Categories** | Calibre's hand-built tag-browser categories appear as a third sidebar section; one click searches them through cquarry's native `@Name` location (Calibre-exact member semantics). |
 | **Annotations & Reading Progress** | E-reader highlights and per-device progress from Calibre's own sync surface on each detail page. |
 | **Local-First** | Zero telemetry, zero network calls, zero accounts. Just your books. |
 
