@@ -14,7 +14,8 @@
   and the new `get_feeds()` / `get_annotations_dirtied_books()` / `get_tag_browser_counts()`
   APIs are available (the latter exposes Calibre's own `tag_browser_*` sidebar rollups with
   `avg_rating` — a candidate for future browse-sidebar count badges).
-- **Requires cquarry ≥1.6.**
+- **Requires cquarry ≥1.6.1** (picks up the empty-numeric-query parity fix — `rating:` with no
+  value now matches nothing instead of raising, relevant to free-text entry in the search bar).
 
 ## v1.5.0 (2026-08-26)
 
