@@ -1,5 +1,43 @@
 # Hermitage — Patch Notes
 
+## v1.6.1 (2026-08-30)
+
+### Phase 15 sweep + audit findings (bug fixes only)
+
+- **Export no longer silently drops columns.** `_book_to_dict` and the CSV
+  fieldnames now carry `pages`, `custom`, `author_sorts`, and `author_links`
+  (CSV: author arrays joined with `; `, custom JSON-encoded, mirroring
+  `identifiers`). Every field on `Book` now survives an export.
+- **Synopsis paragraphs survive.** `_clean_html()` converts block-level
+  boundaries (`<p>`, `<br>`, div, headings, list/table rows) to newlines
+  before the generic tag strip; a multi-paragraph Calibre comment no longer
+  collapses into one wall of text.
+- **Theme default fixed.** `_query_dark()` treated the portal's `0` (no
+  preference) as light mode, contradicting its own documented dark default;
+  only `2` (light) selects light now.
+- **Insights average keeps half-star precision.** The rating average used
+  floor division, so [8, 7] displayed 3.5 stars instead of the true 3.75.
+- **Insights closes on Escape**, matching the preferences window's dialog
+  convention.
+- **A failing search no longer un-filters the view.** The search box's bare
+  `except Exception` fell back to the whole library on any error; malformed
+  queries now show no results (cquarry `ParseException`), and real errors
+  propagate instead of being masked.
+- **The Flatpak actually contains cquarry now.** The manifest never gained a
+  cquarry module when the dependency arrived in v1.1.0, so any Flatpak build
+  of the current tree produced an app that could not open a library. The
+  manifest adds cquarry (plus a pinned hatchling wheel set, which cquarry's
+  build backend needs and the SDK doesn't ship), with the cquarry source
+  pinned to the 1.7.1 commit; the pin is bumped deliberately with each
+  cquarry release (standing rule recorded in cquarry's roadmap).
+- **Version ladder reconciled.** `__init__.py` claimed 1.5.0 while these
+  notes said 1.6.0; the AppStream metainfo lagged at 1.1.0 with no entries
+  past it. All three now agree on 1.6.1, and the metainfo gained the missing
+  1.3.0-1.6.0 entries. One gap is noted rather than invented: no v1.2.0 entry
+  exists anywhere (the notes jump v1.1.0 → v1.3.0) and it is not
+  reconstructable; the duplicate "# Hermitage — Patch Notes" header from an
+  old concatenation is gone.
+
 ## v1.6.0 (2026-08-26)
 
 ### cquarry 1.6.0 Adoption
@@ -49,7 +87,6 @@
 - **cquarry Shared Backend:** Ripped out the custom, hand-rolled Calibre database connection and search parser from `hermitage/database.py` and `hermitage/search.py`. Hermitage now uses the `cquarry` library as its single source of truth for all Calibre data.
 - **Search Grammar Parity:** By adopting `cquarry.db.CalibreDB.search()`, Hermitage natively supports every Calibre search feature (implicit ANDs, regex, date math, custom columns, identifiers, nested Virtual Libraries) rather than its previous limited subset.
 - **Dependency Update:** Added `cquarry` to the required packages.
-# Hermitage — Patch Notes
 
 
 ## v1.0.0 (2026-08-21) — 1.0 Milestone and Stable Release

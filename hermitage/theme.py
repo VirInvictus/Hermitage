@@ -206,7 +206,9 @@ def _query_dark() -> bool:
                 None,
             )
         scheme = _unwrap(result.get_child_value(0)).get_uint32()
-        return scheme == 1
+        # 2=light; 0 (no preference) and 1 (dark) both take the dark default,
+        # which the docstring promises and which `== 1` silently broke.
+        return scheme != 2
     except (GLib.Error, Exception):
         return True  # no portal backend — Hermitage defaults to dark
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from cquarry.search import ParseException
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -1358,8 +1360,11 @@ class HermitageApp(Gtk.Application):
             HermitageApp._save_scroll_if_unfiltered(win)
             try:
                 matching_ids = get_cquarry_db().search(text)
-            except Exception:
-                matching_ids = {b.id for b in win._books}
+            except ParseException:
+                # A malformed query matches nothing. The old bare except fell
+                # back to the whole library, so a failing search silently
+                # un-filtered the view instead of showing no results.
+                matching_ids = set()
             win._filter.set_filter_func(
                 lambda item: item.book.id in matching_ids,
             )

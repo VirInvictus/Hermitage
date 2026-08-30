@@ -15,7 +15,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 
-from gi.repository import Gtk, Pango
+from gi.repository import Gdk, Gtk, Pango
 
 from hermitage import widgets
 from hermitage.database import Book
@@ -41,7 +41,10 @@ class LibrarySummary:
     no_tags: list[Book]
     no_identifiers: list[Book]
     rated_count: int
-    avg_rating_x10: int  # rating * 2 to render as 10-scale int (no floats)
+    # Average rating on Calibre's 0-10 scale (render divides by 2 for 0-5).
+    # Float, not floor-divided: [9, 10] averaged to 4.5 under `//`, a half
+    # star below the true 4.75.
+    avg_rating_x10: float
 
 
 def summarize(books: list[Book]) -> LibrarySummary:
@@ -88,7 +91,7 @@ def summarize(books: list[Book]) -> LibrarySummary:
             rated_total += b.rating
             rated_count += 1
 
-    avg = (rated_total // rated_count) if rated_count else 0
+    avg = (rated_total / rated_count) if rated_count else 0.0
 
     return LibrarySummary(
         total_books=len(books),
@@ -130,6 +133,17 @@ class InsightsWindow(Gtk.Window):
 
         self._summary = summarize(books)
         self._build_ui()
+
+        # Escape closes, matching the app's dialog conventions.
+        key = Gtk.EventControllerKey()
+        key.connect("key-pressed", self._on_key)
+        self.add_controller(key)
+
+    def _on_key(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        return False
 
     def _build_ui(self):
         scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)

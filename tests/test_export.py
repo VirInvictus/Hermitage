@@ -82,6 +82,37 @@ class TestExport(unittest.TestCase):
         with out.open(newline="") as fh:
             self.assertEqual(len(list(csv.DictReader(fh))), 2)
 
+    def test_pages_custom_and_author_columns_export(self):
+        # Regression (Phase 15): pages, custom, author_sorts and author_links
+        # existed on Book but were silently dropped by both export formats.
+        books = _books()
+        books[0].pages = 288
+        books[0].custom = {"reading_status": "Read"}
+        books[0].author_sorts = ["Pratchett, Terry", "Gaiman, Neil"]
+        books[0].author_links = ["", "https://neilgaiman.com"]
+
+        jout = self.dir / "lib.json"
+        export_books(books, jout)
+        data = json.loads(jout.read_text())
+        self.assertEqual(data[0]["pages"], 288)
+        self.assertEqual(data[0]["custom"], {"reading_status": "Read"})
+        self.assertEqual(
+            data[0]["author_sorts"], ["Pratchett, Terry", "Gaiman, Neil"]
+        )
+        self.assertEqual(data[1]["pages"], None)
+        self.assertEqual(data[1]["custom"], {})
+
+        cout = self.dir / "lib.csv"
+        export_books(books, cout)
+        with cout.open(newline="") as fh:
+            rows = list(csv.DictReader(fh))
+        self.assertEqual(rows[0]["pages"], "288")
+        self.assertEqual(json.loads(rows[0]["custom"]), {"reading_status": "Read"})
+        self.assertEqual(rows[0]["author_sorts"], "Pratchett, Terry; Gaiman, Neil")
+        self.assertEqual(rows[1]["pages"], "")
+        self.assertEqual(rows[1]["custom"], "")
+        self.assertEqual(rows[1]["author_sorts"], "")
+
     def test_unknown_format_raises(self):
         with self.assertRaises(ValueError):
             export_books(_books(), self.dir / "x.json", fmt="xml")

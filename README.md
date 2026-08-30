@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python 3.14+"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python 3.13+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" alt="License: GPL-3.0"></a>
 </p>
 
@@ -36,7 +36,7 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 
 ## Development & Setup
 
-Hermitage requires **Python 3.14+** and **GTK 4.22+**.
+Hermitage requires **Python 3.13+ (the Flatpak runtime ships 3.13; development runs 3.14)** and **GTK 4.22+**.
 
 ```bash
 # Install dependencies
@@ -65,7 +65,7 @@ Top-level categories appear as cards. Mid-level branches appear as labeled subse
 
 ## Requirements
 
-**Python 3.14+** with:
+**Python 3.13+** with:
 
 ```
 pip install PyGObject Pillow PyYAML cquarry
@@ -135,6 +135,12 @@ Bare text searches across title, authors, tags, and series. Multiple words are i
 |----------|--------|
 | Ctrl+F   | Toggle search bar |
 | Ctrl+L   | Toggle virtual library sidebar |
+| Ctrl+G   | Toggle genre browser |
+| Ctrl+R   | Toggle series browser |
+| Ctrl+I   | Library Insights window |
+| Ctrl+comma | Preferences |
+| Ctrl+?   | Keyboard shortcuts overlay |
+| Ctrl+Q   | Quit |
 | Escape   | Dismiss codex, then search, then VL sidebar (priority order) |
 
 ## Library verification
@@ -157,6 +163,10 @@ hermitage/
   codex.py          # Detail sidebar: hero blur, clickable metadata, synopsis, Read button
   config.py         # YAML config load/save (~/.config/hermitage/config.yaml)
   genres.py         # Genre browser: recursive tag hierarchy with cards and pills
+  series.py         # Series browser: grouped rows with index ranges and gaps
+  history.py        # Reading history: one event-log table, newest-first view
+  insights.py       # Library Insights window: glance tiles, top-N, audit rows
+  export.py         # JSON/CSV library export via a file dialog
   preferences.py    # Plain Gtk.Window preferences (boxed-list, dropdown, switch)
   wizard.py         # First-run setup wizard with Calibre folder picker
   database.py       # Read-only Calibre metadata.db parser, virtual library loader
@@ -168,7 +178,7 @@ hermitage/
 
 ## Stack
 
-- **Python 3.14** with `cquarry` -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
+- **Python 3.13+** with `cquarry` -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
 - **GTK 4.22** (no libadwaita) -- plain GTK 4 with an owned stylesheet, Hyprland-native; overlay `Gtk.Revealer` sidebars, a width-clamping widget, and portal-based follow-system dark/light in place of the adwaita equivalents
 - **SQLite3** in `mode=ro` -- immutable read-only access to Calibre's database
 - **Pillow** -- thumbnailing (LANCZOS), hero blur (GaussianBlur r30), color quantization (median-cut)

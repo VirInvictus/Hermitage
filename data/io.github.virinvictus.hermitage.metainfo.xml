@@ -85,6 +85,43 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.6.1" date="2026-08-30">
+      <description>
+        <p>Bug-fix sweep: library exports carry page counts, custom columns,
+        and author sort/link data; multi-paragraph synopses keep their
+        paragraph breaks; the Insights rating average keeps half-star
+        precision; the follow-system theme honours its dark default when the
+        portal reports no preference; Insights and search-failure behaviour
+        match the other dialogs. The Flatpak build now bundles the cquarry
+        library it depends on.</p>
+      </description>
+    </release>
+    <release version="1.6.0" date="2026-08-26">
+      <description>
+        <p>cquarry 1.6 adoption: user-category searches run natively through
+        the Calibre grammar, matching the desktop app exactly.</p>
+      </description>
+    </release>
+    <release version="1.5.0" date="2026-08-26">
+      <description>
+        <p>cquarry 1.4 adoption: author cards ordered by true sort name with
+        link URLs, and enumeration values rendered as colored badges from the
+        column's own palette.</p>
+      </description>
+    </release>
+    <release version="1.4.0" date="2026-08-26">
+      <description>
+        <p>cquarry 1.3 adoption: native page counts on the detail view, and
+        canonical cover/format resolution shared with the rest of the
+        ecosystem.</p>
+      </description>
+    </release>
+    <release version="1.3.0" date="2026-08-25">
+      <description>
+        <p>Saved searches, annotation highlights, and per-device reading
+        progress on the book detail page.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-08-23"/>
     <release version="1.0.0" date="2026-08-21">
       <description>

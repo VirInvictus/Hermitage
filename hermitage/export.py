@@ -37,6 +37,10 @@ def _book_to_dict(b: Book) -> dict:
         "has_cover": b.has_cover,
         "path": b.path,
         "identifiers": b.identifiers,
+        "pages": b.pages,
+        "custom": b.custom,
+        "author_sorts": b.author_sorts,
+        "author_links": b.author_links,
     }
 
 
@@ -67,6 +71,10 @@ def export_books(books: list[Book], path: Path, fmt: str | None = None) -> int:
             "has_cover",
             "path",
             "identifiers",
+            "pages",
+            "custom",
+            "author_sorts",
+            "author_links",
         ]
         with path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)
@@ -90,6 +98,12 @@ def export_books(books: list[Book], path: Path, fmt: str | None = None) -> int:
                         "identifiers": json.dumps(b.identifiers, ensure_ascii=False)
                         if b.identifiers
                         else "",
+                        "pages": b.pages if b.pages is not None else "",
+                        "custom": json.dumps(b.custom, ensure_ascii=False)
+                        if b.custom
+                        else "",
+                        "author_sorts": "; ".join(b.author_sorts),
+                        "author_links": "; ".join(b.author_links),
                     }
                 )
     else:

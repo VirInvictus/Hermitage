@@ -26,7 +26,7 @@ hermitage-verify   # integrity check + path-resolution benchmark, exits non-zero
 
 The test suite lives in `tests/` (stdlib-unittest, CalibreQuarry style: temp sqlite fixtures, no display needed): `python -m unittest discover -s tests`. Run it with the **system** python or a venv that has PyGObject/PyYAML installed — a bare venv without `gi` will report import errors for the GUI-touching modules. Lint is `ruff check hermitage/` (config in `pyproject.toml`; E402 is per-file-ignored for the `gi.require_version` pattern). There is still no build step. For anything the tests can't see (GTK surfaces), the verification path is `hermitage-verify` against the real library plus a manual GTK smoke run. If you change DB queries, cover resolution, or color/thumb pipelines, run the tests **and** `hermitage-verify` before declaring done.
 
-System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML`, `cquarry>=1.1` (declared in `pyproject.toml`).
+System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita is no longer imported). PyPI deps: `PyGObject`, `Pillow`, `PyYAML`, `cquarry`. The cquarry dependency is declared as an unpinned git dep on `main` (pyproject enforces no version; CI installs `@main` fresh), and the Flatpak manifest separately pins an exact cquarry commit that must be bumped with each cquarry release. APIs the tree calls today need cquarry ≥1.6 (`get_user_categories`, `@Name` search); patchnotes record the per-release floors.
 
 ## Hard constraints
 

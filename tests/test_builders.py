@@ -122,6 +122,12 @@ class TestSummarize(unittest.TestCase):
         self.assertEqual(s.rated_count, 2)
         self.assertEqual(s.avg_rating_x10, 7)
 
+    def test_average_keeps_half_star_precision(self):
+        # Regression (Phase 15): `//` averaged [8, 7] to 7 (a 3.5-star display);
+        # true average is 7.5 → 3.75 stars.
+        books = [_book(id=1, rating=8), _book(id=2, rating=7)]
+        self.assertEqual(summarize(books).avg_rating_x10, 7.5)
+
 
 # --------------------------------------------------------------------------- #
 # codex helpers
@@ -134,6 +140,14 @@ class TestCleanHtml(unittest.TestCase):
     def test_collapses_whitespace(self):
         raw = "a   \t b"
         self.assertEqual(_clean_html(raw), "a b")
+
+    def test_paragraph_breaks_survive(self):
+        # Regression (Phase 15): block boundaries were stripped to spaces,
+        # flattening multi-paragraph comments into one wall of text.
+        raw = "<p>First para.</p><p>Second para.</p>tail<br/>more"
+        self.assertEqual(
+            _clean_html(raw), "First para.\n\nSecond para.\ntail\nmore"
+        )
 
 
 class TestIdentifierLinks(unittest.TestCase):

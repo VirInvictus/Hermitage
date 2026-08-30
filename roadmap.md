@@ -152,15 +152,22 @@ With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegate
 *Context: Found fatal uninitialized UI variables, data loss on export, and theme application bugs.*
 
 ### Bugs to Fix
-- [ ] **Fatal Startup Crash:** Initialize `win._vl_defs = load_virtual_libraries()` in `_load_library` to prevent the UI from permanently crashing on the loading spinner.
-- [ ] **Synopsis Obliteration:** Replace block-level HTML tags (`<p>`, `<br>`) with newlines in `_clean_html()` before stripping to prevent wall-of-text formatting.
-- [ ] **Custom Column Data Loss:** Include the `custom` field in `_book_to_dict` and CSV fieldnames so exports don't silently drop custom columns.
-- [ ] **Theme Override Bug:** Update `_query_dark` to default to dark mode when the portal returns `0` (no preference), instead of forcing light mode.
-- [ ] **Missing Escape Dismissal:** Add an `EventControllerKey` to `InsightsWindow` to allow closing via the Escape key, matching other modals.
-- [ ] **Rating Precision Loss:** Replace floor division (`//`) with float division (`/`) when averaging ratings in `InsightsWindow`.
+- [x] **Fatal Startup Crash:** Initialize `win._vl_defs = load_virtual_libraries()` in `_load_library` to prevent the UI from permanently crashing on the loading spinner. *(Fixed in code since v1.3.0 (app.py assigns it in `_load_library`); the box just was never ticked. Ticked 2026-08-30.)*
+- [x] **Synopsis Obliteration:** Replace block-level HTML tags (`<p>`, `<br>`) with newlines in `_clean_html()` before stripping to prevent wall-of-text formatting. *(v1.6.1: `_BLOCK_RE` converts block boundaries to newlines before the generic strip; test added.)*
+- [x] **Custom Column Data Loss:** Include the `custom` field in `_book_to_dict` and CSV fieldnames so exports don't silently drop custom columns. *(v1.6.1: exports carry `custom` plus the three other dropped `Book` fields — `pages`, `author_sorts`, `author_links`; test added.)*
+- [x] **Theme Override Bug:** Update `_query_dark` to default to dark mode when the portal returns `0` (no preference), instead of forcing light mode. *(v1.6.1: `scheme != 2`; only an explicit light preference selects light.)*
+- [x] **Missing Escape Dismissal:** Add an `EventControllerKey` to `InsightsWindow` to allow closing via the Escape key, matching other modals. *(v1.6.1: same idiom as preferences.py.)*
+- [x] **Rating Precision Loss:** Replace floor division (`//`) with float division (`/`) when averaging ratings in `InsightsWindow`. *(v1.6.1: `avg_rating_x10` is a float now; [8, 7] averages to 7.5, not 7; test added.)*
 
 ### Refactoring & Growth
 - [ ] **Async UI File I/O:** Offload `b.cover_path.is_file()` checks in Insights to a background thread to prevent UI freezing on huge libraries.
 - [ ] **JIT Single-Entity Loading:** Delay full comment and metadata loading until Codex activation for near-instant 50k+ book startup times.
 - [ ] **Multi-Format Codex Selection:** Add dropdown UI for books with multiple formats (EPUB/PDF/CBZ) instead of forcing the first match.
-- [ ] **Docs Sync:** Correct `README.md` missing modules, add all keyboard shortcuts to the table, and fix the `CLAUDE.md` test suite count.
+- [x] **Docs Sync:** Correct `README.md` missing modules, add all keyboard shortcuts to the table, and fix the `CLAUDE.md` test suite count. *(v1.6.1: README file listing gained `series.py`/`history.py`/`insights.py`/`export.py`, the shortcuts table now lists every registered accelerator, and the Python-floor claims match pyproject's 3.13. The CLAUDE.md test count was already dropped in commit 1319b63.)*
+
+### v1.6.1 additions (2026-08-30, from the ecosystem audit)
+- [x] **Search failure silently un-filtered the view.** The search box's bare `except Exception` fell back to the whole library on any error, so a malformed query looked like "everything matches". Malformed queries now show no results (cquarry `ParseException`); other errors propagate instead of being masked.
+- [x] **The Flatpak shipped without cquarry.** The dependency arrived in v1.1.0 but the manifest never gained a cquarry module and hermitage installs `--no-deps`, so a Flatpak build of the current tree produced an app that could not open a library. The manifest now installs a pinned hatchling wheel set (cquarry's build backend; the SDK doesn't ship it) and cquarry itself, pinned to the 1.7.1 commit. Standing rule (recorded in cquarry's roadmap): any cquarry roadmap item affecting Hermitage bumps that pin in the same release as its consumer sync.
+- [x] **Version ladder reconciled.** `__init__.py` said 1.5.0 while patchnotes said 1.6.0 and the AppStream metainfo lagged at 1.1.0; all three now read 1.6.1, the metainfo gained the 1.3.0-1.6.0 entries, and the duplicated patchnotes header is gone. The missing v1.2.0 entry is noted as unrecoverable rather than fabricated.
+- [x] **Python-floor claims matched pyproject.** README's badge and prose said 3.14+ while pyproject declares `>= 3.13` (the GNOME 50 runtime ships 3.13); everything now says 3.13+ with the dev-env note. Hermitage's own code keeps parenthesized except-groups for the same reason.
+- [x] **CLAUDE.md's dependency statement** claimed `cquarry>=1.1` was "declared in pyproject.toml"; pyproject declares an unpinned git dep and CI installs `@main`. The statement now describes both the dev policy and the Flatpak pin.

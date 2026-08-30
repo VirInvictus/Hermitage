@@ -69,11 +69,19 @@ def _generate_blurred_cover(cover: Path) -> Path | None:
 # ---------------------------------------------------------------------------
 
 _TAG_RE = re.compile(r"<[^>]+>")
+# Block-level boundaries become newlines before the generic strip; without
+# this a multi-paragraph Calibre comment collapsed into one wall of text.
+_BLOCK_RE = re.compile(r"(?i)<\s*/?\s*(br|p|div|li|tr|h[1-6]|blockquote)\b[^>]*>")
 
 
 def _clean_html(raw: str) -> str:
-    """Strip HTML tags and decode entities from Calibre comments."""
-    text = _TAG_RE.sub(" ", raw)
+    """Strip HTML tags and decode entities from Calibre comments.
+
+    Paragraph breaks (<p>, <br>, div, headings, list/table rows) survive as
+    newlines; everything else strips to spaces.
+    """
+    text = _BLOCK_RE.sub("\n", raw)
+    text = _TAG_RE.sub(" ", text)
     text = html.unescape(text)
     # Collapse whitespace runs but preserve paragraph breaks
     text = re.sub(r"[ \t]+", " ", text)
