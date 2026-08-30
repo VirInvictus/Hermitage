@@ -85,6 +85,13 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.7.0" date="2026-08-30">
+      <description>
+        <p>cquarry 1.8 adoption: genre counts and Insights audit rows derive
+        through the shared library modules, and the database layer no longer
+        touches any private API.</p>
+      </description>
+    </release>
     <release version="1.6.1" date="2026-08-30">
       <description>
         <p>Bug-fix sweep: library exports carry page counts, custom columns,

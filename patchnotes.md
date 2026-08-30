@@ -1,5 +1,39 @@
 # Hermitage — Patch Notes
 
+## v1.7.0 (2026-08-30)
+
+### cquarry 1.8 adoption (Phase 9 sync; clean-room per the GPL rule)
+
+- **The database layer has no reach-ins anymore.** `load_library()` no longer
+  touches `db.conn`: bulk identifiers come off the hydrated rows (cquarry
+  ≥1.6 row shape) and bulk comments through cquarry 1.8's sanctioned
+  `get_comments()`. Same data, same shapes; the last private-API coupling in
+  the tree is gone.
+- **Genres render over `tag_rollup`.** The sidebar's subtree totals (section
+  headers, subsections, pills) now come from cquarry's `tag_rollup` instead
+  of a local `_total_count()` recursion. The parity proof is structural —
+  both are "own count plus descendants" over the same exact-path counts —
+  and the test now pins the rolled map against the old numbers.
+- **Insights audit rows run through `cquarry.integrity`** when the window has
+  a library handle: untagged, formatless, and the cover row (cquarry's
+  flag-less OR missing-file predicates, merged back into the row the window
+  renders). Two deliberate, documented differences on that path: a
+  cover.png-only book now counts as covered (canonical resolution agreeing
+  with the rest of the app — the old inline check only looked for
+  cover.jpg), and there is no identifiers predicate upstream, so that row
+  stays computed locally. The db-less path (tests) keeps the original inline
+  checks unchanged.
+- **`verify.py`'s cover check resolves through the Book's canonical
+  `cover_path`** instead of hardcoding `cover.jpg`. Same unverified
+  semantics — a png-only cover still reports missing; changing that is a
+  separate, deliberate call.
+- **Kept local on purpose (render-parity gate):** `codex.py`'s `_clean_html`
+  and star-glyph assembly. cquarry's `strip_html` disagrees with the GTK-tuned
+  whitespace handling on edge cases, and `format_stars` is terminal-formatted
+  (`[★★★ 3.0/5]`) rather than the bare glyph string the detail view renders.
+- **Dependency**: requires cquarry ≥ 1.8 (dev dependency tracks `@main`; the
+  Flatpak pin bumps to the 1.8.0 commit).
+
 ## v1.6.1 (2026-08-30)
 
 ### Phase 15 sweep + audit findings (bug fixes only)

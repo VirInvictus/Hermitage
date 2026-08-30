@@ -18,7 +18,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk, Pango
 
 from hermitage import widgets
-from hermitage.database import Book
+from hermitage.database import Book, get_cquarry_db
 
 
 # ---------------------------------------------------------------------------
@@ -47,8 +47,17 @@ class LibrarySummary:
     avg_rating_x10: float
 
 
-def summarize(books: list[Book]) -> LibrarySummary:
-    """Compute every stat the Insights window renders."""
+def summarize(books: list[Book], db=None) -> LibrarySummary:
+    """Compute every stat the Insights window renders.
+
+    With a `CalibreDB` handle, the audit rows come from cquarry.integrity —
+    the ecosystem's one shared definition of "incomplete". The db-less path
+    (tests, callers without a handle) keeps the equivalent inline checks.
+    Known, intended difference on the db path: the cover row merges
+    cquarry's split predicates (flag-less OR missing file), which adopts
+    canonical resolution — a cover.png-only book counts as covered. There is
+    no identifiers predicate upstream, so that row always stays inline.
+    """
     tag_counter: Counter[str] = Counter()
     author_counter: Counter[str] = Counter()
     fmt_counter: Counter[str] = Counter()
@@ -60,6 +69,20 @@ def summarize(books: list[Book]) -> LibrarySummary:
     no_identifiers: list[Book] = []
     rated_total = 0
     rated_count = 0
+
+    if db is not None:
+        from cquarry.integrity import (
+            find_coverless,
+            find_formatless,
+            find_missing_cover_files,
+            find_untagged,
+        )
+
+        untagged = set(find_untagged(db))
+        formatless = set(find_formatless(db))
+        no_cover_ids = set(find_coverless(db)) | set(
+            find_missing_cover_files(db)
+        )
 
     for b in books:
         for t in b.tags:
@@ -78,12 +101,20 @@ def summarize(books: list[Book]) -> LibrarySummary:
             series.add(b.series)
         identifier_count += len(b.identifiers)
 
-        if not b.has_cover or (b.cover_path and not b.cover_path.is_file()):
-            no_cover.append(b)
-        if not b.formats:
-            no_formats.append(b)
-        if not b.tags:
-            no_tags.append(b)
+        if db is not None:
+            if b.id in untagged:
+                no_tags.append(b)
+            if b.id in formatless:
+                no_formats.append(b)
+            if b.id in no_cover_ids:
+                no_cover.append(b)
+        else:
+            if not b.has_cover or (b.cover_path and not b.cover_path.is_file()):
+                no_cover.append(b)
+            if not b.formats:
+                no_formats.append(b)
+            if not b.tags:
+                no_tags.append(b)
         if not b.identifiers:
             no_identifiers.append(b)
 
@@ -131,7 +162,7 @@ class InsightsWindow(Gtk.Window):
             default_height=720,
         )
 
-        self._summary = summarize(books)
+        self._summary = summarize(books, get_cquarry_db())
         self._build_ui()
 
         # Escape closes, matching the app's dialog conventions.

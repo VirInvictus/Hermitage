@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -166,18 +165,10 @@ def load_library() -> list[Book]:
     custom_cols = load_custom_columns()
     custom_values = {col.label: db.load_custom_column(col.name) for col in custom_cols}
 
-    # Bulk-load identifiers and comments directly via cquarry's connection
-    by_book: dict[int, dict[str, str]] = {}
-    cur = db.conn.cursor()
-    for row in cur.execute("SELECT book, type, val FROM identifiers"):
-        by_book.setdefault(row["book"], {})[row["type"]] = row["val"]
-
-    comments_by_book: dict[int, str] = {}
-    try:
-        for row in cur.execute("SELECT book, text FROM comments"):
-            comments_by_book[row["book"]] = row["text"]
-    except sqlite3.OperationalError:
-        pass
+    # Bulk comments use cquarry's sanctioned bulk read (1.8's
+    # get_comments()); identifiers ride the hydrated rows themselves
+    # (cquarry >= 1.6 row shape) — no more reach-ins to db.conn.
+    comments_by_book: dict[int, str] = db.get_comments()
 
     def _custom_for(book_id: int) -> dict[str, str | list[str]]:
         res: dict[str, str | list[str]] = {}
@@ -217,7 +208,7 @@ def load_library() -> list[Book]:
                 formats=list(b["formats"] or []),
                 pubdate=b["pubdate"],
                 timestamp=b["timestamp"],
-                identifiers=by_book.get(b["id"], {}),
+                identifiers=dict(b["identifiers"] or {}),
                 pages=b.get("pages"),
                 author_sorts=list(b.get("author_sorts") or []),
                 author_links=list(b.get("author_links") or []),

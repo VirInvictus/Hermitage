@@ -41,12 +41,27 @@ def _build_tag_tree(books: list[Book]) -> dict:
     return root
 
 
-def _total_count(node: dict) -> int:
-    """Recursively count all books under a node."""
-    total = node["_count"]
-    for child in node["children"].values():
-        total += _total_count(child)
-    return total
+def _exact_counts(books: list[Book]) -> dict[str, int]:
+    """Books tagged at each exact dot-path (the tree's `_count` view)."""
+    counts: dict[str, int] = {}
+    for book in books:
+        for tag in book.tags:
+            tag = tag.strip()
+            if tag:
+                counts[tag] = counts.get(tag, 0) + 1
+    return counts
+
+
+def _rolled_counts(books: list[Book]) -> dict[str, int]:
+    """Subtree totals per dot-path, via cquarry's tag_rollup.
+
+    Same numbers _total_count() produced from the tree (own count plus
+    everything below it); the derivation now lives in cquarry and is shared
+    with the rest of the ecosystem.
+    """
+    from cquarry.helpers import tag_rollup
+
+    return tag_rollup(_exact_counts(books))
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +104,7 @@ class GenreBrowser(Gtk.Box):
             self._content.remove(child)
 
         tree = _build_tag_tree(books)
+        rolled = _rolled_counts(books)
 
         # Page header
         header = Gtk.Label(label="Genres", xalign=0)
@@ -107,7 +123,7 @@ class GenreBrowser(Gtk.Box):
         # Build sections for each top-level category
         for name in sorted(tree["children"].keys()):
             child_node = tree["children"][name]
-            section = self._build_section(name, name, child_node)
+            section = self._build_section(name, name, child_node, rolled)
             self._content.append(section)
 
     def _build_section(
@@ -115,6 +131,7 @@ class GenreBrowser(Gtk.Box):
         display_name: str,
         full_path: str,
         node: dict,
+        rolled: dict[str, int],
     ) -> Gtk.Widget:
         """Build a section card for a top-level category."""
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -122,8 +139,8 @@ class GenreBrowser(Gtk.Box):
         card.add_css_class("genre-card")
         card.set_margin_bottom(4)
 
-        # Section header with total count
-        total = _total_count(node)
+        # Section header with total count (subtree total via tag_rollup)
+        total = rolled.get(full_path, 0)
         header_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
             spacing=8,
@@ -166,7 +183,7 @@ class GenreBrowser(Gtk.Box):
 
         # Recursively render children
         if node["children"]:
-            self._build_children(card, node, full_path, depth=0)
+            self._build_children(card, node, full_path, depth=0, rolled=rolled)
 
         # Bottom padding
         spacer = Gtk.Box()
@@ -181,6 +198,7 @@ class GenreBrowser(Gtk.Box):
         node: dict,
         parent_path: str,
         depth: int,
+        rolled: dict[str, int],
     ):
         """Recursively render child nodes. Leaf nodes as pills, branches as
         labeled subsections with their own pill flows."""
@@ -213,14 +231,14 @@ class GenreBrowser(Gtk.Box):
             flow.add_css_class("genre-flow")
 
             for child_name, child_path, child_node in leaves:
-                pill_btn = self._make_pill(child_name, child_path, child_node)
+                pill_btn = self._make_pill(child_name, child_path, child_node, rolled)
                 flow.append(pill_btn)
 
             container.append(flow)
 
         # Render branch nodes as labeled subsections
         for child_name, child_path, child_node in branches:
-            child_total = _total_count(child_node)
+            child_total = rolled.get(child_path, 0)
 
             # Subsection header
             sub_header = Gtk.Box(
@@ -275,6 +293,7 @@ class GenreBrowser(Gtk.Box):
                 child_node,
                 child_path,
                 depth + 1,
+                rolled=rolled,
             )
 
     def _make_pill(
@@ -282,9 +301,10 @@ class GenreBrowser(Gtk.Box):
         name: str,
         full_path: str,
         node: dict,
+        rolled: dict[str, int],
     ) -> Gtk.Button:
         """Create a single genre pill button."""
-        total = _total_count(node)
+        total = rolled.get(full_path, 0)
         pill_btn = Gtk.Button()
         pill_btn.add_css_class("genre-pill")
 

@@ -9,7 +9,7 @@ import unittest
 
 from hermitage.codex import _clean_html, _IDENTIFIER_LINKS
 from hermitage.database import Book
-from hermitage.genres import _build_tag_tree, _total_count
+from hermitage.genres import _build_tag_tree, _rolled_counts
 from hermitage.insights import summarize
 from hermitage.series import SeriesEntry, _build_series_index
 
@@ -42,12 +42,12 @@ class TestTagTree(unittest.TestCase):
         tree = _build_tag_tree(books)
         fic = tree["children"]["Fic"]
         self.assertEqual(fic["_count"], 1)  # book 3 directly on Fic
-        self.assertEqual(_total_count(fic), 3)
+        self.assertEqual(_rolled_counts(books)["Fic"], 3)
         self.assertEqual(fic["children"]["Fantasy"]["_count"], 1)
         self.assertEqual(
             fic["children"]["Fantasy"]["children"]["Grimdark"]["_count"], 1
         )
-        self.assertEqual(_total_count(tree["children"]["Non"]), 1)
+        self.assertEqual(_rolled_counts(books)["Non"], 1)
 
     def test_blank_tags_ignored(self):
         tree = _build_tag_tree([_book(tags=["  ", ""])])

@@ -30,8 +30,13 @@ def verify_library():
             continue
 
         if b.has_cover:
-            cover = book_dir / "cover.jpg"
-            if cover.is_file():
+            # Canonical cover resolution (cquarry get_cover_path with the
+            # Book wrapper's unverified semantics): the catalogued cover.jpg
+            # path, checked on disk here. A cover.png-only book still counts
+            # as missing, exactly as the hardcoded check did — flagged in the
+            # 1.7.0 patchnotes as a known gap, not silently changed.
+            cover = b.cover_path
+            if cover is not None and cover.is_file():
                 cover_ok += 1
             else:
                 missing_cover.append(b)

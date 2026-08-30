@@ -171,3 +171,26 @@ With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegate
 - [x] **Version ladder reconciled.** `__init__.py` said 1.5.0 while patchnotes said 1.6.0 and the AppStream metainfo lagged at 1.1.0; all three now read 1.6.1, the metainfo gained the 1.3.0-1.6.0 entries, and the duplicated patchnotes header is gone. The missing v1.2.0 entry is noted as unrecoverable rather than fabricated.
 - [x] **Python-floor claims matched pyproject.** README's badge and prose said 3.14+ while pyproject declares `>= 3.13` (the GNOME 50 runtime ships 3.13); everything now says 3.13+ with the dev-env note. Hermitage's own code keeps parenthesized except-groups for the same reason.
 - [x] **CLAUDE.md's dependency statement** claimed `cquarry>=1.1` was "declared in pyproject.toml"; pyproject declares an unpinned git dep and CI installs `@main`. The statement now describes both the dev policy and the Flatpak pin.
+
+### v1.7.0 (2026-08-30): cquarry Phase 9 sync (clean-room per the GPL rule)
+
+- [x] **`database.py` drops both `db.conn` reach-ins**: bulk identifiers off
+      the hydrated rows, bulk comments via cquarry 1.8's `get_comments()`.
+      CLAUDE.md gains the standing no-reach-ins rule.
+- [x] **`genres.py` via `tag_rollup`**: section/subsection/pill subtree totals
+      come from cquarry; the parity test pins the rolled map against the old
+      `_total_count` numbers, which the helper now replaces.
+- [x] **`insights.py` predicates through `cquarry.integrity`** (optional
+      db handle): untagged/formatless/cover rows. Two documented differences
+      on the db path — png-only covers count as covered (canonical
+      resolution), and the identifiers row stays local (no upstream
+      predicate). Db-less callers (tests) keep the inline checks.
+- [x] **`verify.py:33`'s hardcoded `cover.jpg`** resolves through the Book's
+      canonical `cover_path` (same unverified semantics; png-only still
+      reports missing — a deliberate separate call if ever made).
+- [x] **`codex.py` `_clean_html` / star glyphs**: WAIVED under the
+      render-parity gate — `strip_html`'s whitespace handling and
+      `format_stars`' terminal framing are not output-identical to the GTK
+      renderers; both stay local with the reason recorded here.
+- [x] **Version 1.7.0** (the 1.6.1 reconciliation landed earlier today, so
+      this release is the sync only) + AppStream entry + patchnotes.
