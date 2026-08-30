@@ -145,9 +145,7 @@ class TestCleanHtml(unittest.TestCase):
         # Regression (Phase 15): block boundaries were stripped to spaces,
         # flattening multi-paragraph comments into one wall of text.
         raw = "<p>First para.</p><p>Second para.</p>tail<br/>more"
-        self.assertEqual(
-            _clean_html(raw), "First para.\n\nSecond para.\ntail\nmore"
-        )
+        self.assertEqual(_clean_html(raw), "First para.\n\nSecond para.\ntail\nmore")
 
 
 class TestIdentifierLinks(unittest.TestCase):

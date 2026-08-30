@@ -80,9 +80,7 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
 
         untagged = set(find_untagged(db))
         formatless = set(find_formatless(db))
-        no_cover_ids = set(find_coverless(db)) | set(
-            find_missing_cover_files(db)
-        )
+        no_cover_ids = set(find_coverless(db)) | set(find_missing_cover_files(db))
 
     for b in books:
         for t in b.tags:

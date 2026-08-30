@@ -96,9 +96,7 @@ class TestExport(unittest.TestCase):
         data = json.loads(jout.read_text())
         self.assertEqual(data[0]["pages"], 288)
         self.assertEqual(data[0]["custom"], {"reading_status": "Read"})
-        self.assertEqual(
-            data[0]["author_sorts"], ["Pratchett, Terry", "Gaiman, Neil"]
-        )
+        self.assertEqual(data[0]["author_sorts"], ["Pratchett, Terry", "Gaiman, Neil"])
         self.assertEqual(data[1]["pages"], None)
         self.assertEqual(data[1]["custom"], {})
 
