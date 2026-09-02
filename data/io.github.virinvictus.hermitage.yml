@@ -150,8 +150,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/VirInvictus/cquarry.git
-        commit: 737158362ce2b6a456d27c86660c9d0063b519f8
-        # cquarry 1.8.0
+        commit: f22bbe7c6903aab7d201fa3652e977d3d17e19b0
+        # cquarry 1.9.0
 
   # Hermitage itself + its desktop / icon / metainfo data files.
   - name: hermitage

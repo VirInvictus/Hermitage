@@ -194,3 +194,13 @@ With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegate
       renderers; both stay local with the reason recorded here.
 - [x] **Version 1.7.0** (the 1.6.1 reconciliation landed earlier today, so
       this release is the sync only) + AppStream entry + patchnotes.
+
+### v1.7.1 (2026-09-02): cquarry 1.9 sync
+
+- [x] **Custom-column lookup dual resolution, verified.** cquarry 1.9's
+      `find_custom_column`/`load_custom_column` accept `#label`, bare label,
+      or display name (display name wins on ambiguity). Hermitage passes
+      display names and keys by label; both keep working unchanged —
+      verified by inspection and suite, no code change. Flatpak pin bumped
+      to cquarry 1.9.0 (`f22bbe7`) in the same release per the standing
+      rule. Version 1.7.1 + AppStream + patchnotes.

@@ -1,5 +1,23 @@
 # Hermitage — Patch Notes
 
+## v1.7.1 (2026-09-02)
+
+### cquarry 1.9 sync
+
+- **Verified, not rewritten.** The dual-resolution half of cquarry 1.9 makes
+  custom columns addressable by `#label`, bare label, or display name, with
+  the display name keeping precedence on ambiguity. Hermitage's one lookup
+  site (`database.py`'s `load_custom_columns`/`load_library`, which pass
+  `col.name` display names and key values by `col.label`) keeps working
+  unchanged — verified by inspection and by the suite below. No code change
+  was needed or made.
+- **Flatpak pin bumped** to the pushed cquarry 1.9.0 commit (`f22bbe7`),
+  per the standing rule that every Hermitage-affecting cquarry release bumps
+  the pin in the same release as its consumer sync.
+- Version 1.7.1 + AppStream entry. Suite: 61 tests green against cquarry
+  1.9.0 under system Python.
+
+
 ## v1.7.0 (2026-08-30)
 
 ### cquarry 1.8 adoption (Phase 9 sync; clean-room per the GPL rule)

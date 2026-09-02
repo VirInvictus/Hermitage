@@ -85,6 +85,13 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.7.1" date="2026-09-02">
+      <description>
+        <p>cquarry 1.9 sync: the custom-column lookups Hermitage already makes
+        resolve by #label, bare label, or display name (display-name call sites
+        verified unchanged), and the bundled cquarry moves to 1.9.0.</p>
+      </description>
+    </release>
     <release version="1.7.0" date="2026-08-30">
       <description>
         <p>cquarry 1.8 adoption: genre counts and Insights audit rows derive
