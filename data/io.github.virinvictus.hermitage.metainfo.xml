@@ -85,6 +85,14 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.8.0" date="2026-09-03">
+      <description>
+        <p>Startup no longer loads every comment in the library (fetched per
+        book when its detail view opens), Library Insights computes on a
+        background thread instead of freezing the window, and multi-format
+        books gain a format picker beside the Read button.</p>
+      </description>
+    </release>
     <release version="1.7.1" date="2026-09-02">
       <description>
         <p>cquarry 1.9 sync: the custom-column lookups Hermitage already makes

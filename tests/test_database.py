@@ -14,7 +14,13 @@ import unittest
 from pathlib import Path
 
 from hermitage import database
-from hermitage.database import Book, load_library, load_virtual_libraries, library_root
+from hermitage.database import (
+    Book,
+    get_comment_for,
+    library_root,
+    load_library,
+    load_virtual_libraries,
+)
 
 _SCHEMA = """
 CREATE TABLE books (
@@ -265,7 +271,9 @@ class TestLoadLibrary(_FixtureBase):
         self.assertEqual(sorted(b1.tags), ["Fic.Fantasy", "Humour"])
         self.assertEqual(sorted(b1.formats), ["EPUB", "PDF"])
         self.assertEqual(b1.rating, 8)
-        self.assertEqual(b1.comment, "<p>Funny.</p>")
+        # Comments are JIT-loaded (Phase 15): startup carries None; the
+        # per-book fetch fills it in.
+        self.assertIsNone(b1.comment)
         self.assertEqual(b1.identifiers, {"isbn": "9780060853983"})
         self.assertEqual(b2.series, "Hainish Cycle")
         self.assertEqual(b2.series_index, 2.0)
@@ -289,6 +297,17 @@ class TestLoadLibrary(_FixtureBase):
     def test_library_root(self):
         load_library()
         self.assertEqual(library_root(), self.root)
+
+
+class TestJitComments(_FixtureBase):
+    """Phase 15: comments fetch on demand, one book at a time."""
+
+    def test_get_comment_for_returns_the_row(self):
+        self.assertEqual(get_comment_for(1), "<p>Funny.</p>")
+
+    def test_get_comment_for_none_when_no_row(self):
+        self.assertIsNone(get_comment_for(2))  # book with no comment row
+        self.assertIsNone(get_comment_for(999))  # unknown book
 
 
 class TestVirtualLibraries(_FixtureBase):

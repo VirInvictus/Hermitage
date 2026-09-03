@@ -26,7 +26,7 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 | Feature | Description |
 |---------|-------------|
 | **The Sanctuary** | Edge-to-edge cover art grid with hover scale transforms and dynamic color tinting. |
-| **The Codex** | Sliding detail sidebar with hero banners, clickable metadata, native Calibre page counts, authors ordered by their true sort keys (with author links), enumeration values colored per your desktop GUI's palette, and half-star ratings. |
+| **The Codex** | Sliding detail sidebar with hero banners, clickable metadata, native Calibre page counts, authors ordered by their true sort keys (with author links), enumeration values colored per your desktop GUI's palette, half-star ratings, and — for multi-format books — a format picker beside the Read button (EPUB/PDF/CBZ; open the one you mean). |
 | **Genre Browser** | Recursive tag hierarchy rendered as nested cards and pills. |
 | **Virtual Libraries** | Native support for Calibre's **Virtual Libraries** (Wings) for instant filtering — ordered and hidden exactly as your Calibre GUI arranges them. |
 | **Saved Searches** | Calibre's named saved searches appear in the sidebar; one click runs the query via cquarry's grammar engine. |

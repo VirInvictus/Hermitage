@@ -156,6 +156,31 @@ def load_custom_columns() -> list[CustomColumn]:
     return _custom_columns_cache
 
 
+def get_comment_for(book_id: int) -> str | None:
+    """One book's raw comment HTML, fetched on demand (JIT loading).
+
+    A short-lived CalibreDB, per cquarry's short-lived single-threaded
+    design — this runs on Codex activation, not at startup. Returns None
+    when the book has no comment row or cannot be read; empty string is
+    never returned (callers test truthiness).
+    """
+    try:
+        row = get_cquarry_db().get_book(book_id, include_comments=True)
+    except Exception:
+        return None
+    if not row:
+        return None
+    return row.get("comments") or None
+
+
+def get_all_comments() -> dict[int, str]:
+    """Bulk {book_id: html} for exports (cquarry's sanctioned bulk read)."""
+    try:
+        return get_cquarry_db().get_comments()
+    except Exception:
+        return {}
+
+
 def load_library() -> list[Book]:
     """Load every book from the Calibre database (read-only)."""
     global _library_root_cache
@@ -165,10 +190,13 @@ def load_library() -> list[Book]:
     custom_cols = load_custom_columns()
     custom_values = {col.label: db.load_custom_column(col.name) for col in custom_cols}
 
-    # Bulk comments use cquarry's sanctioned bulk read (1.8's
-    # get_comments()); identifiers ride the hydrated rows themselves
-    # (cquarry >= 1.6 row shape) — no more reach-ins to db.conn.
-    comments_by_book: dict[int, str] = db.get_comments()
+    # Comments are deliberately NOT loaded here anymore (Phase 15's JIT
+    # item): a whole-library get_comments() is the slowest line of this
+    # function on big libraries and its payload only ever renders when a
+    # Codex opens. The Codex fetches one book's comment on activation
+    # (get_comment_for) and memoizes it on the Book; exports bulk-fetch at
+    # export time. Identifiers still ride the hydrated rows themselves
+    # (cquarry >= 1.6 row shape) — no reach-ins to db.conn.
 
     def _custom_for(book_id: int) -> dict[str, str | list[str]]:
         res: dict[str, str | list[str]] = {}
@@ -204,7 +232,7 @@ def load_library() -> list[Book]:
                 series_index=b["series_index"] or 1.0,
                 rating=b["rating"],
                 tags=list(b["tags"] or []),
-                comment=comments_by_book.get(b["id"]),
+                comment=None,  # JIT: fetched when the Codex opens
                 formats=list(b["formats"] or []),
                 pubdate=b["pubdate"],
                 timestamp=b["timestamp"],

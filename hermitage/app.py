@@ -643,10 +643,11 @@ class HermitageApp(Gtk.Application):
                 return  # user cancelled or io error
             from pathlib import Path
             from hermitage.export import export_books, detect_format
+            from hermitage.database import get_all_comments
 
             path = Path(f.get_path())
             try:
-                count = export_books(win._books, path)
+                count = export_books(win._books, path, comments=get_all_comments())
             except Exception as exc:
                 win._toast_overlay.add_toast(
                     f"Export failed: {type(exc).__name__}: {exc}",

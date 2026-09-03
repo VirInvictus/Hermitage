@@ -138,15 +138,31 @@ Portfolio direction change (Brandon, 2026-07-09): the goal moved from "runs poli
 - [x] **Packaging follow-through.** *(v0.17.0 — evaluated and stayed on the GNOME runtime, since that is where GTK4 and PyGObject come from; the manifest simply stops pulling libadwaita and CI drops `libadwaita-devel`. The app-id/`StartupWMClass` lockstep survives, now guarded by a test.)* The Flatpak runtime question is real here rather than automatic: the GNOME runtime is where GTK4 and PyGObject come from, so unlike the Rust apps Hermitage may stay on the GNOME runtime and simply stop importing `Adw`; evaluate honestly rather than assuming the freedesktop runtime is the answer. The app-id/`StartupWMClass` lockstep (Phase 13's regression-guard item) must survive untouched.
 - [x] **Verification tail.** *(v0.17.0 — automated acceptance green: ruff, 75 unit tests including the new guards, `hermitage-verify` (7,116 books), and a clean launch. The theme-path guard now targets `hermitage/theme.py` (no `Gio.Settings`, no `Adw`). The keyboard, type-ahead, and fractional-scale items shipped; the geometry/CSD visual pass is the remaining manual Phase 13 item.)* Phase 13's items re-run against the migrated shell as this phase's acceptance criteria.
 
-## Phase 4: cquarry Integration (Upcoming)
+## Phase 4: cquarry Integration (RE-SCOPED 2026-09-02)
 
-With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegates all metadata parsing to the upstream engine. As `cquarry` executes on its roadmap, Hermitage will adopt the following features:
+With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegates all
+metadata parsing to the upstream engine. This list predates several shipped phases and
+carried items that are already done or superseded; re-scoped against what actually
+shipped (see the phases above for the ticks):
 
-- **Saved Searches & Virtual Libraries:** Adopt `cquarry`'s upcoming JSON preference parser to render the user's Saved Searches in the sidebar exactly as configured in Calibre.
-- **Hierarchical Tags & Categories:** Render a true GTK TreeView sidebar for hierarchical tags (`Fiction.SciFi`) using `cquarry`'s upcoming taxonomy parser.
-- **JIT Single-Entity Fetching:** Transition to `get_book(book_id)` for detailed views, eliminating the memory overhead of loading full metadata for every book in the library at startup.
-- **Reading Progress Tracking:** Map `last_read_positions` parsed by `cquarry` to render a visual progress bar indicating how far along the user is on their e-reader.
-- **E-Reader Annotations:** Render e-reader highlights and annotations directly within Hermitage's Book Details pane, powered by `cquarry`'s FTS5 integration.
+- [x] **Saved Searches & Virtual Libraries** — DONE, differently than proposed: the
+      VL sidebar and `load_saved_searches()` have shipped since the early cquarry
+      phases (Phases 4/6); the sidebar honors hidden/ordering state. No TreeView was
+      ever wanted for VLs — the section list is the design that worked.
+- [x] **JIT Single-Entity Fetching** — DONE in Phase 15 (1.8.0), scoped to what the
+      data justified: comments (the heavy payload) fetch per-book on Codex
+      activation via `get_comment_for()`; full-row JIT fetching stays declined —
+      cquarry's hydrated bulk read is what makes search and the grid fast, and a
+      per-book N+1 grid would trade real speed for theoretical memory.
+- **Hierarchical Tags & Categories** — kept open in its modern form: the genre
+  browser (Phase 6) already renders the dot-hierarchy via `tag_rollup`; a separate
+  TreeView widget remains declined unless a real browsing gap shows up.
+- **Reading Progress Tracking** — superseded: the Codex carries per-device reading
+  progress (Phases 2/11 cquarry adoption); a Calibre-style progress BAR on covers
+  stays a maybe, not a plan.
+- **E-Reader Annotations** — already rendered in the Codex (Phase 2 cquarry
+  adoption, annotations section); no FTS5 integration is wanted (Hermitage's search
+  grammar covers `annotations:` through cquarry).
 
 ## Phase 15: Codebase Sweep & Fixes (2026-08-23)
 *Context: Found fatal uninitialized UI variables, data loss on export, and theme application bugs.*
@@ -159,10 +175,10 @@ With the transition to the `cquarry` shared library (v1.2.0), Hermitage delegate
 - [x] **Missing Escape Dismissal:** Add an `EventControllerKey` to `InsightsWindow` to allow closing via the Escape key, matching other modals. *(v1.6.1: same idiom as preferences.py.)*
 - [x] **Rating Precision Loss:** Replace floor division (`//`) with float division (`/`) when averaging ratings in `InsightsWindow`. *(v1.6.1: `avg_rating_x10` is a float now; [8, 7] averages to 7.5, not 7; test added.)*
 
-### Refactoring & Growth
-- [ ] **Async UI File I/O:** Offload `b.cover_path.is_file()` checks in Insights to a background thread to prevent UI freezing on huge libraries.
-- [ ] **JIT Single-Entity Loading:** Delay full comment and metadata loading until Codex activation for near-instant 50k+ book startup times.
-- [ ] **Multi-Format Codex Selection:** Add dropdown UI for books with multiple formats (EPUB/PDF/CBZ) instead of forcing the first match.
+### Refactoring & Growth (shipped in 1.8.0, 2026-09-02)
+- [x] **Async UI File I/O:** Offload `b.cover_path.is_file()` checks in Insights to a background thread to prevent UI freezing on huge libraries. *(The whole summarize() runs on a worker thread now — its db-less path stats every covered cover — with the window opening immediately on a placeholder and filling via GLib.idle_add; the worker opens its own short-lived CalibreDB, never the UI thread's shared one.)*
+- [x] **JIT Single-Entity Loading:** Delay full comment and metadata loading until Codex activation for near-instant 50k+ book startup times. *(Scoped to comments — the heavy payload: load_library() no longer bulk-fetches get_comments(); the Codex fetches one book's comment on activation via get_comment_for() and memoizes it on the Book; exports pass the bulk map explicitly. Full-row JIT declined: the hydrated bulk read is what makes search/the grid fast.)*
+- [x] **Multi-Format Codex Selection:** Add dropdown UI for books with multiple formats (EPUB/PDF/CBZ) instead of forcing the first match. *(Gtk.DropDown beside the Read button, priority-ordered via the pure _ordered_formats(), defaulting to the best-readable; Read opens the selected format, falling through to the priority order if the pick is missing on disk; single-format books never see it.)*
 - [x] **Docs Sync:** Correct `README.md` missing modules, add all keyboard shortcuts to the table, and fix the `CLAUDE.md` test suite count. *(v1.6.1: README file listing gained `series.py`/`history.py`/`insights.py`/`export.py`, the shortcuts table now lists every registered accelerator, and the Python-floor claims match pyproject's 3.13. The CLAUDE.md test count was already dropped in commit 1319b63.)*
 
 ### v1.6.1 additions (2026-08-30, from the ecosystem audit)

@@ -1,4 +1,35 @@
 # Hermitage — Patch Notes
+## v1.8.0 (2026-09-03)
+
+### Phase 15 refactor tier: startup, the frozen window, and the format picker
+
+- **Comments are JIT-loaded.** `load_library()` no longer bulk-fetches the
+  whole library's comments — the slowest line of the load on five-figure
+  libraries, for a payload that only ever renders when one Codex opens. The
+  Codex now fetches a book's comment on activation (`get_comment_for()`, a
+  short-lived read) and memoizes it on the Book. Exports stay pure: the
+  export action passes `get_all_comments()` explicitly, so an export still
+  carries every real synopsis (a book whose Codex never opened would
+  otherwise export None — a startup artifact stated as fact).
+- **Library Insights computes on a background thread.** The db-less audit
+  path stats every covered book's cover file, which froze the UI for
+  seconds on big libraries. The window now opens immediately on a
+  placeholder and fills in via `GLib.idle_add` when the worker lands; the
+  worker opens its own short-lived CalibreDB rather than sharing the UI
+  thread's connection (cquarry connections are single-threaded by design).
+- **Multi-format books get a format picker.** A `Gtk.DropDown` beside the
+  Read button lists the book's formats best-readable-first
+  (`_ordered_formats()`, pure and unit-tested); Read opens the selected
+  format, falling through to the priority order if that file is missing on
+  disk. Single-format books never see it.
+- **The stale "Phase 4: cquarry Integration (Upcoming)" list is re-scoped**
+  in the roadmap: what shipped (VL sidebar/saved searches, annotations,
+  per-device progress, the genre browser's hierarchy), what this release
+  completed (JIT fetching, scoped to comments — full-row JIT declined
+  because the hydrated bulk read is what makes search and the grid fast),
+  and what stays declined.
+- Tests 63 → 65 (JIT comment fetch round-trips; the pure format ordering).
+
 
 ## v1.7.1 (2026-09-02)
 

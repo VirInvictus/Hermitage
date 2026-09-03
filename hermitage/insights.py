@@ -1,13 +1,15 @@
 """Library Insights — at-a-glance stats and audit for the loaded library.
 
-A standalone `Gtk.Window` opened from the hamburger menu. Operates entirely
-on the in-memory `list[Book]` Hermitage already has — no extra DB query, no
-background work. Aggregations are computed once at construction and rendered
-into a scrollable column.
+A standalone `Gtk.Window` opened from the hamburger menu. Operates on the
+in-memory `list[Book]` Hermitage already has; the aggregation runs on a
+background thread (the db-less audit path stats every covered book's cover
+file, seconds on a five-figure library) and the window fills in when it
+lands.
 """
 
 from __future__ import annotations
 
+import threading
 from collections import Counter
 from dataclasses import dataclass
 
@@ -15,10 +17,12 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 
-from gi.repository import Gdk, Gtk, Pango
+from gi.repository import GLib, Gdk, Gtk, Pango
+
+from cquarry.db import CalibreDB
 
 from hermitage import widgets
-from hermitage.database import Book, get_cquarry_db
+from hermitage.database import Book, _resolve_library_path
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +150,16 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
 
 
 class InsightsWindow(Gtk.Window):
-    """Library Insights — at-a-glance + top-N + audit."""
+    """Library Insights — at-a-glance + top-N + audit.
+
+    The numbers are computed on a background thread (Phase 15): the
+    db-less audit path stats every covered book's cover file, and on a
+    five-figure library that froze the UI for seconds. The window opens
+    immediately on a placeholder and fills in via GLib.idle_add when the
+    worker lands. The worker opens its OWN short-lived CalibreDB rather
+    than touching the UI thread's shared one — cquarry connections are
+    single-threaded by design.
+    """
 
     def __init__(self, parent: Gtk.Window, books: list[Book]):
         # application= is what carries the app's Wayland app_id onto this surface;
@@ -160,13 +173,50 @@ class InsightsWindow(Gtk.Window):
             default_height=720,
         )
 
-        self._summary = summarize(books, get_cquarry_db())
-        self._build_ui()
+        self._summary: LibrarySummary | None = None
+        self._books = books
+        self._destroyed = False
+        self.connect("destroy", self._on_destroy)
+
+        placeholder = Gtk.Label(label="Crunching the library…")
+        placeholder.add_css_class("dim-label")
+        placeholder.set_vexpand(True)
+        self.set_titlebar(Gtk.HeaderBar())
+        self.set_child(placeholder)
 
         # Escape closes, matching the app's dialog conventions.
         key = Gtk.EventControllerKey()
         key.connect("key-pressed", self._on_key)
         self.add_controller(key)
+
+        threading.Thread(target=self._compute, daemon=True).start()
+
+    def _on_destroy(self, *args):
+        self._destroyed = True
+
+    def _compute(self):
+        """Worker: build the summary off the UI thread."""
+        try:
+            db = CalibreDB(str(_resolve_library_path()))
+        except Exception:
+            db = None  # db-less path: the inline predicates still answer
+        try:
+            summary = summarize(self._books, db)
+        except Exception:
+            summary = summarize(self._books)
+        finally:
+            if db is not None:
+                db.close()
+        if not self._destroyed:
+            GLib.idle_add(self._apply_summary, summary)
+
+    def _apply_summary(self, summary: LibrarySummary):
+        """Main thread: swap the placeholder for the real sections."""
+        if self._destroyed:
+            return GLib.SOURCE_REMOVE
+        self._summary = summary
+        self._build_ui()
+        return GLib.SOURCE_REMOVE
 
     def _on_key(self, controller, keyval, keycode, state):
         if keyval == Gdk.KEY_Escape:

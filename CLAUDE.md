@@ -41,6 +41,8 @@ System deps on Fedora: `gtk4`, `python3-gobject` (already installed; libadwaita 
 ## Architecture (the parts that span multiple files)
 
 Entry point chain: `__main__.main` (installs SIGINT handler) → `app.run` → `HermitageApp.do_activate`. If no config and no `HERMITAGE_DB`, the wizard runs first; otherwise `_build_window` shows a "Loading…" status page and `GLib.idle_add`s `_load_library`, which calls `database.load_library()` (a single joined SQL query, sorted by `b.sort COLLATE NOCASE`) and then assembles the UI.
+- **Comments are JIT (1.8.0).** `load_library()` does NOT fetch comments; `Book.comment is None` means "not yet fetched", `""` means the library has none. The Codex fetches on activation via `database.get_comment_for()` (short-lived read) and memoizes onto the Book; exports pass `database.get_all_comments()` explicitly (pure export_books stays DB-free). Never reintroduce a whole-library `get_comments()` at startup — it was the slowest line of the load on five-figure libraries.
+- **Insights computes off the UI thread (1.8.0).** `InsightsWindow` opens on a placeholder and runs `summarize()` on a worker thread that opens its OWN short-lived CalibreDB (`_resolve_library_path()`), never the shared `get_cquarry_db()` singleton — cquarry connections are single-threaded by design, and the UI thread queries its own. Results land via `GLib.idle_add`; a `destroy` flag guards post-close callbacks.
 
 The window is a **titlebar + overlay stack** (`app._build_chrome` / `_build_layout`). The two sidebars are `Gtk.Revealer` panels floated over the grid (they slide in over the covers, not pushing the grid), and the search bar sits in a column below the titlebar:
 

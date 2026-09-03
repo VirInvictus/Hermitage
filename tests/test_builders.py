@@ -159,3 +159,35 @@ class TestIdentifierLinks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# format ordering (codex's multi-format selector)
+try:
+    from hermitage.codex import _ordered_formats
+except Exception:
+    _ordered_formats = None
+
+
+@unittest.skipIf(_ordered_formats is None, "codex import unavailable")
+class TestOrderedFormats(unittest.TestCase):
+    def _book(self, formats):
+        from hermitage.database import Book
+
+        return Book(
+            id=1,
+            title="t",
+            sort="t",
+            authors=[],
+            path="x",
+            has_cover=0,
+            formats=formats,
+        )
+
+    def test_priority_order_with_unranked_tail(self):
+        ordered = _ordered_formats(self._book(["CBZ", "PDF", "EPUB"]))
+        self.assertEqual(ordered[0], "EPUB")
+        self.assertIn("PDF", ordered[1:2])
+        self.assertEqual(ordered[-1], "CBZ")  # unranked formats go last
+
+    def test_single_format_stays_alone(self):
+        self.assertEqual(_ordered_formats(self._book(["EPUB"])), ["EPUB"])

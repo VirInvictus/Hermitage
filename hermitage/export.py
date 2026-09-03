@@ -1,8 +1,11 @@
 """Export the loaded library to JSON or CSV.
 
-Pure read-only reformatting of the in-memory `list[Book]` Hermitage already
-has — no DB query. Format is picked from the destination path's extension
-(`.json` → JSON, `.csv` → CSV); unknown extensions fall back to JSON.
+Reformats the in-memory `list[Book]` Hermitage already has. Comments are
+JIT-loaded since Phase 15 (None on books whose Codex never opened), so the
+caller passes the bulk map (database.get_all_comments()) and unread books
+export empty rather than recording every synopsis as absent. Format is
+picked from the destination path's extension (`.json` → JSON, `.csv` →
+CSV); unknown extensions fall back to JSON.
 """
 
 from __future__ import annotations
@@ -44,11 +47,29 @@ def _book_to_dict(b: Book) -> dict:
     }
 
 
-def export_books(books: list[Book], path: Path, fmt: str | None = None) -> int:
-    """Write *books* to *path* as JSON or CSV. Returns the number written."""
+def export_books(
+    books: list[Book],
+    path: Path,
+    fmt: str | None = None,
+    comments: dict[int, str] | None = None,
+) -> int:
+    """Write *books* to *path* as JSON or CSV. Returns the number written.
+
+    `comments` is the bulk {book_id: html} map (database.get_all_comments());
+    when given, books whose comment was never JIT-loaded export their real
+    synopsis instead of None.
+    """
     if fmt is None:
         fmt = detect_format(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # JIT comments: None means "never opened in the Codex" (a startup
+    # artifact, not a fact about the library), so a supplied map fills those
+    # in before anything is written.
+    if comments:
+        for b in books:
+            if b.comment is None:
+                b.comment = comments.get(b.id) or ""
 
     if fmt == "json":
         data = [_book_to_dict(b) for b in books]

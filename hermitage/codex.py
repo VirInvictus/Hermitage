@@ -123,8 +123,17 @@ _IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
 }
 
 
-def _find_format_file(book: Book) -> Path | None:
-    """Locate the best readable file for a book, preferring EPUB > PDF > etc.
+def _ordered_formats(book: Book) -> list[str]:
+    """The book's formats, best-readable first (the priority order), any
+    unranked formats after. Pure; drives the multi-format selector."""
+    ranked = [f for f in _FORMAT_PRIORITY if f in book.formats]
+    rest = [f for f in book.formats if f not in ranked]
+    return ranked + rest
+
+
+def _find_format_file(book: Book, fmt: str | None = None) -> Path | None:
+    """Locate a readable file for the book: the given format, or the best
+    readable one (EPUB > PDF > ...) when fmt is None.
 
     Exact paths come from cquarry's get_formats() (the canonical storage
     layout); the historical directory glob remains as a fallback for
@@ -135,7 +144,25 @@ def _find_format_file(book: Book) -> Path | None:
     except Exception:
         fmt_map = {}
 
-    for fmt in _FORMAT_PRIORITY:
+    order = [fmt] if fmt else _ordered_formats(book)
+    for fmt in order:
+        if fmt in book.formats:
+            entry = fmt_map.get(fmt)
+            if entry and os.path.exists(entry["path"]):
+                return Path(entry["path"])
+            candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
+            if not candidates:
+                candidates = list((library_root() / book.path).glob(f"*.{fmt}"))
+            if candidates:
+                return candidates[0]
+
+    if fmt:
+        # The requested format resolved to nothing on disk; fall through to
+        # the priority order rather than handing back nothing.
+        return _find_format_file(book)
+
+    # Fallback: try any format present
+    for fmt in book.formats:
         if fmt in book.formats:
             entry = fmt_map.get(fmt)
             if entry and os.path.exists(entry["path"]):
@@ -289,6 +316,8 @@ class CodexView(Gtk.Box):
         body_inner.append(self._rating_label)
 
         # Read button
+        self._read_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._read_row.set_valign(Gtk.Align.CENTER)
         self._read_btn = Gtk.Button(label="Read")
         self._read_btn.add_css_class("suggested-action")
         self._read_btn.add_css_class("pill")
@@ -296,7 +325,11 @@ class CodexView(Gtk.Box):
         self._read_btn.set_tooltip_text("Open in your default reader")
         self._read_btn.set_halign(Gtk.Align.START)
         self._read_btn.connect("clicked", self._on_read_clicked)
-        body_inner.append(self._read_btn)
+        self._read_row.append(self._read_btn)
+        # Multi-format books pick which file the Read button opens
+        # (Phase 15); single-format books never see the selector.
+        self._format_drop: Gtk.DropDown | None = None
+        body_inner.append(self._read_row)
 
         # Tags section
         self._tags_header = Gtk.Label(label="Tags", xalign=0)
@@ -470,7 +503,13 @@ class CodexView(Gtk.Box):
         # Custom columns ("Details")
         self._populate_custom(book)
 
-        # Synopsis
+        # Synopsis. comment is JIT-loaded (Phase 15): None means not yet
+        # fetched, so the first Codex activation pays one per-book read and
+        # memoizes the result on the Book; "" means the library has none.
+        if book.comment is None:
+            from hermitage.database import get_comment_for
+
+            book.comment = get_comment_for(book.id) or ""
         if book.comment:
             text = _clean_html(book.comment)
             self._synopsis.set_text(text)
@@ -510,6 +549,7 @@ class CodexView(Gtk.Box):
 
         # Read button
         self._read_btn.set_visible(bool(book.formats))
+        self._update_format_selector(book)
 
         # Last-read line — populated from local history database
         self._refresh_last_read()
@@ -751,13 +791,34 @@ class CodexView(Gtk.Box):
         launcher = Gtk.UriLauncher(uri=url)
         launcher.launch(self.get_root(), None, None)
 
+    def _update_format_selector(self, book: Book):
+        """Show the format picker only for multi-format books."""
+        if self._format_drop is not None:
+            self._read_row.remove(self._format_drop)
+            self._format_drop = None
+        if len(book.formats) < 2:
+            return
+        ordered = _ordered_formats(book)
+        self._format_drop = Gtk.DropDown(
+            model=Gtk.StringList(strings=ordered),
+            tooltip_text="Which format the Read button opens",
+        )
+        self._read_row.append(self._format_drop)
+
+    def _selected_format(self) -> str | None:
+        if self._format_drop is None:
+            return None
+        return self._format_drop.get_model().get_string(
+            self._format_drop.get_selected()
+        )
+
     def _on_read_clicked(self, btn):
         """Launch the book in the system's default reader."""
         book = self._current_book
         if not book:
             return
 
-        chosen = _find_format_file(book)
+        chosen = _find_format_file(book, self._selected_format())
         if not chosen:
             return
 
