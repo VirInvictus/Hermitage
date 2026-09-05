@@ -10,8 +10,8 @@
 
 ## 2. Technical Stack
 - **Frameworks:** GTK 4 only (PyGObject). **No libadwaita.** The GNOME identity layer (the adwaita stylesheet, the adaptive widgets, `Adw.StyleManager`) is dropped in favour of plain GTK 4 widgets and a stylesheet Hermitage owns outright. A small `hermitage/widgets.py` supplies the owned successors to the adwaita widgets that earned their keep: a width-clamping `Clamp`, a `WindowTitle`, a `ToastOverlay`, and a `status_page` composite.
-- **Graphics Engine:** GTK 4.22+ utilizing `Gtk.Snapshot` for custom blur effects and the `GtkSvg` native renderer for iconography.
-- **Database:** Shared `cquarry` (≥1.1) backend engine for canonical Calibre metadata.db read access and search evaluation. `hermitage/database.py` is a thin wrapper layer: `load_library()` consumes cquarry's list-typed `authors`/`tags`/`formats` arrays directly (never comma-split them), and the wrappers `load_saved_searches()`, `load_vl_ui_state()`, `get_annotations(book_id)` and `get_reading_progress(book_id)` expose saved searches, Calibre's sidebar layout state, e-reader highlights, and per-device progress fractions.
+- **Graphics Engine:** GTK 4.22+ utilizing `Gtk.Snapshot` for custom blur effects and the `GtkSvg` native renderer for iconography. *(Superseded as built, noted 2026-09-05: the codex blur is Pillow `GaussianBlur` (`codex.py`) and icons are pre-rendered PNGs via `rsvg-convert` in the Flatpak manifest; the README describes the shipped reality.)*
+- **Database:** Shared `cquarry` (≥1.8) backend engine for canonical Calibre metadata.db read access and search evaluation. `hermitage/database.py` is a thin wrapper layer: `load_library()` consumes cquarry's list-typed `authors`/`tags`/`formats` arrays directly (never comma-split them), and the wrappers `load_saved_searches()`, `load_vl_ui_state()`, `get_annotations(book_id)` and `get_reading_progress(book_id)` expose saved searches, Calibre's sidebar layout state, e-reader highlights, and per-device progress fractions.
 - **Concurrency:** Python 3.14 sub-interpreters or TaskGroups for non-blocking cover fetching and color extraction.
 
 ## 2a. Design Language (Hyprland-native)
@@ -36,5 +36,4 @@ Hermitage dropped libadwaita to *fully belong on Hyprland* rather than merely to
 
 Important folders for testing:
 "/home/bdkl/docs/Calibre\ Library" - Where the metadata.db lives (as well as the library itself). DO NOT EDIT ANYTHING IN THIS FILE. YOU CAN USE THE METADATA.DB TO USE BUT MUST ONLY READ-ONLY ACCESS.
-"/tmp/Calibre-Web-Automated" - The source code for Calibre-Web-Automated
 

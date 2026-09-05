@@ -160,6 +160,7 @@ hermitage/
   app.py            # Gtk.Application, GridView, overlay-revealer sidebars, sorting, search, type-ahead
   widgets.py        # Owned GTK widgets: Clamp, WindowTitle, ToastOverlay, StatusPage, boxed-list rows
   theme.py          # Single theme path: portal dark/light + Kanagawa Dragon palette
+  typography.py     # Bundled fonts (Fraunces, Inter, IBM Plex Sans Condensed) registered with Pango at startup
   codex.py          # Detail sidebar: hero blur, clickable metadata, synopsis, Read button
   config.py         # YAML config load/save (~/.config/hermitage/config.yaml)
   genres.py         # Genre browser: recursive tag hierarchy with cards and pills
