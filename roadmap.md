@@ -230,3 +230,13 @@ shipped (see the phases above for the ticks):
       floor at v1.6.1. All three spots now read as built: the 3.13+ floor
       (GNOME 50 runtime ships 3.13; development runs 3.14) and the
       as-built ThreadPoolExecutor workers plus the Insights thread.
+- [x] **Insights fallback could hang the window.** The Phase 15 worker
+      opens its own short-lived CalibreDB; when that open failed, the
+      db-less summarize fallback reached the shared UI-thread singleton
+      through `Book.cover_path`, sqlite raised ProgrammingError
+      (connections are single-threaded by design), the daemon worker
+      died, and the window sat on "Crunching the library…" forever. The
+      db-less cover check now treats an unresolvable path as "cannot
+      check" (has_cover governs the row), the worker always lands its
+      summary, and a cross-thread regression test pins both sides of the
+      behavior. Version 1.8.1 + AppStream + patchnotes.

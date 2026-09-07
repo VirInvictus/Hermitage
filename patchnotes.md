@@ -1,4 +1,26 @@
 # Hermitage — Patch Notes
+## v1.8.1 (2026-09-06)
+
+### Insights fallback hardening and doc-floor reconciliation
+
+- **A failed Insights worker can no longer hang the window.** The
+  background thread that computes the summary opens its own short-lived
+  CalibreDB (1.8.0); when that open failed, the db-less fallback's cover
+  check reached the shared UI-thread connection through `Book.cover_path`,
+  sqlite raised ProgrammingError (connections are single-threaded by
+  design), the daemon worker died, and the window sat on "Crunching the
+  library…" forever. The db-less cover check now treats an unresolvable
+  cover path as "cannot check" rather than "missing" (has_cover still
+  governs the row), so the worker always lands its summary. On the UI
+  thread nothing raises and the check is unchanged and exact; a
+  cross-thread regression test pins both sides of that behavior.
+- **Docs: the Python-floor claims in spec.md and CLAUDE.md catch up to
+  the 3.13 as-built**, matching the v1.6.1 reconciliation of README and
+  pyproject; spec's concurrency line now describes the as-built
+  ThreadPoolExecutor workers instead of planned sub-interpreters.
+- Tests 65 → 67 (the cross-thread summarize pair).
+
+
 ## v1.8.0 (2026-09-03)
 
 ### Phase 15 refactor tier: startup, the frozen window, and the format picker

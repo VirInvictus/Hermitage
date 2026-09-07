@@ -51,12 +51,32 @@ class LibrarySummary:
     avg_rating_x10: float
 
 
+def _cover_file_missing(b: Book) -> bool:
+    """True when the book's cover row exists but its file is gone.
+
+    `b.cover_path` resolves through the shared UI-thread singleton
+    (`database.get_cquarry_db`) and cquarry connections are single-threaded:
+    from any other thread the resolution raises, which used to kill the
+    Insights worker mid-summary and leave the window on its placeholder
+    forever. An unresolvable path therefore counts as "cannot check", not
+    "missing"; on the UI thread nothing raises and the check stays exact.
+    """
+    try:
+        p = b.cover_path
+    except Exception:
+        return False
+    return bool(p and not p.is_file())
+
+
 def summarize(books: list[Book], db=None) -> LibrarySummary:
     """Compute every stat the Insights window renders.
 
     With a `CalibreDB` handle, the audit rows come from cquarry.integrity —
     the ecosystem's one shared definition of "incomplete". The db-less path
-    (tests, callers without a handle) keeps the equivalent inline checks.
+    (tests, callers without a handle) keeps the equivalent inline checks;
+    its cover check goes through `_cover_file_missing` so a caller on a
+    non-UI thread survives the shared singleton instead of hanging the
+    window.
     Known, intended difference on the db path: the cover row merges
     cquarry's split predicates (flag-less OR missing file), which adopts
     canonical resolution — a cover.png-only book counts as covered. There is
@@ -111,7 +131,7 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
             if b.id in no_cover_ids:
                 no_cover.append(b)
         else:
-            if not b.has_cover or (b.cover_path and not b.cover_path.is_file()):
+            if not b.has_cover or _cover_file_missing(b):
                 no_cover.append(b)
             if not b.formats:
                 no_formats.append(b)

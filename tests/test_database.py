@@ -10,6 +10,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -17,10 +18,12 @@ from hermitage import database
 from hermitage.database import (
     Book,
     get_comment_for,
+    get_cquarry_db,
     library_root,
     load_library,
     load_virtual_libraries,
 )
+from hermitage.insights import summarize
 
 _SCHEMA = """
 CREATE TABLE books (
@@ -403,6 +406,38 @@ class TestAnnotationsAndProgress(_FixtureBase):
         # phone carries the later epoch; the wrapper must pick it
         self.assertAlmostEqual(database.get_reading_progress(1), 0.90)
         self.assertIsNone(database.get_reading_progress(2))
+
+
+class TestInsightsWorkerFallback(_FixtureBase):
+    """Insights' worker thread must survive the shared UI-thread singleton.
+
+    The 1.8.0 worker opens its own CalibreDB, but when that open failed,
+    summarize's db-less fallback reached the shared connection through
+    Book.cover_path. cquarry connections are single-threaded, so the worker
+    died on the ProgrammingError and the window sat on "Crunching the
+    library…" forever (regression, fixed 1.8.1: the db-less cover check
+    treats an unresolvable path as "cannot check").
+    """
+
+    def test_summarize_off_ui_thread_survives_the_singleton(self):
+        books = load_library()
+        get_cquarry_db()  # the main thread holds the singleton, as the app does
+        results: list = []
+        worker = threading.Thread(target=lambda: results.append(summarize(books)))
+        worker.start()
+        worker.join(timeout=10)
+        self.assertFalse(worker.is_alive(), "summarize never came back")
+        self.assertEqual(len(results), 1)
+        # The worker's cover-path resolution raises on the shared connection,
+        # so no book is reported for the missing-file half; has_cover still
+        # governs the row (book 1 has_cover=1, book 2 has_cover=0).
+        self.assertEqual([b.id for b in results[0].no_cover], [2])
+
+    def test_summarize_on_ui_thread_still_reports_missing_files(self):
+        # Same library, same call, UI thread: book 1's absent cover.jpg is
+        # exactly what the audit row exists to catch.
+        books = load_library()
+        self.assertEqual([b.id for b in summarize(books).no_cover], [2, 1])
 
 
 if __name__ == "__main__":
