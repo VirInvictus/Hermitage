@@ -220,3 +220,13 @@ shipped (see the phases above for the ticks):
       verified by inspection and suite, no code change. Flatpak pin bumped
       to cquarry 1.9.0 (`f22bbe7`) in the same release per the standing
       rule. Version 1.7.1 + AppStream + patchnotes.
+
+### v1.8.1 additions (2026-09-06, from the ecosystem audit)
+
+- [x] **Residual 3.14-floor doc drift reconciled.** CLAUDE.md's opening
+      line and spec.md's goal/language/concurrency lines still said
+      "Python 3.14" (and spec still promised sub-interpreters or
+      TaskGroups) after README and pyproject were corrected to the 3.13
+      floor at v1.6.1. All three spots now read as built: the 3.13+ floor
+      (GNOME 50 runtime ships 3.13; development runs 3.14) and the
+      as-built ThreadPoolExecutor workers plus the Insights thread.

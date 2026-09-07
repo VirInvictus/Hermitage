@@ -1,9 +1,9 @@
 # Specification: Hermitage
-**Project Goal:** A flagship, visually immersive, single-user media sanctuary for Calibre libraries, leveraging the Python 3.14 / GTK 4 "Tokyo" stack to rival modern web-based media servers.
+**Project Goal:** A flagship, visually immersive, single-user media sanctuary for Calibre libraries, leveraging the Python 3.13+ / GTK 4 "Tokyo" stack to rival modern web-based media servers.
 
 ## 1. Core Mandates
 - **Platform:** Pure Wayland, Hyprland-native (works under a GNOME fallback session too). Optimized for high-DPI, fractional-scale, and VRR displays.
-- **Language:** Python 3.14. Utilization of deferred annotations and optimized asyncio.
+- **Language:** Python 3.13+ (floor: the GNOME 50 runtime ships 3.13; development runs 3.14). Deferred annotations throughout; concurrency is threads, not asyncio.
 - **Privacy:** 100% Local-First. Zero telemetry, zero external network calls, zero user accounts.
 - **Performance & Scale:** Engineered to effortlessly scroll a 5,000+ item library with < 150ms initial load time, entirely bypassing network latency.
 - **Aesthetic Precision:** The UI must feel curated, not utilitarian. Focus on cover art dominance, dynamic color palettes, and cinematic detail views.
@@ -12,7 +12,7 @@
 - **Frameworks:** GTK 4 only (PyGObject). **No libadwaita.** The GNOME identity layer (the adwaita stylesheet, the adaptive widgets, `Adw.StyleManager`) is dropped in favour of plain GTK 4 widgets and a stylesheet Hermitage owns outright. A small `hermitage/widgets.py` supplies the owned successors to the adwaita widgets that earned their keep: a width-clamping `Clamp`, a `WindowTitle`, a `ToastOverlay`, and a `status_page` composite.
 - **Graphics Engine:** GTK 4.22+ utilizing `Gtk.Snapshot` for custom blur effects and the `GtkSvg` native renderer for iconography. *(Superseded as built, noted 2026-09-05: the codex blur is Pillow `GaussianBlur` (`codex.py`) and icons are pre-rendered PNGs via `rsvg-convert` in the Flatpak manifest; the README describes the shipped reality.)*
 - **Database:** Shared `cquarry` (≥1.8) backend engine for canonical Calibre metadata.db read access and search evaluation. `hermitage/database.py` is a thin wrapper layer: `load_library()` consumes cquarry's list-typed `authors`/`tags`/`formats` arrays directly (never comma-split them), and the wrappers `load_saved_searches()`, `load_vl_ui_state()`, `get_annotations(book_id)` and `get_reading_progress(book_id)` expose saved searches, Calibre's sidebar layout state, e-reader highlights, and per-device progress fractions.
-- **Concurrency:** Python 3.14 sub-interpreters or TaskGroups for non-blocking cover fetching and color extraction.
+- **Concurrency:** Worker threads, as built: 4-thread `ThreadPoolExecutor`s in `thumbnailer.py`/`colors.py` for cover fetching and color extraction, and the Library Insights summary on its own background thread with a short-lived `CalibreDB` (v1.8.0).
 
 ## 2a. Design Language (Hyprland-native)
 
