@@ -1,4 +1,19 @@
 # Hermitage — Patch Notes
+## v1.8.2 (2026-09-09)
+
+### Cascade: cquarry 1.17 adoption
+
+- **The Insights no-identifiers section computes through the shared
+  predicate.** `cquarry.integrity.find_identifierless` (new in cquarry
+  1.17.0) now answers the db-full audit path, exactly like the other
+  `find_*` sections; the db-less fallback keeps its inline Book-level
+  check, which is the right shape there.
+- **`database.refresh_library()`** exposes cquarry 1.17's `refresh()` on
+  the shared singleton: the coherence boundary after Calibre writes
+  externally (cquarry caches are lazy and never invalidate on their own).
+- **Flatpak cquarry pin moves to 1.17.0** (commit ec1c6af), per the
+  standing bump rule.
+
 ## v1.8.1 (2026-09-06)
 
 ### Insights fallback hardening and doc-floor reconciliation

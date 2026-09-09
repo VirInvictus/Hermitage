@@ -85,6 +85,14 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.8.2" date="2026-09-09">
+      <description>
+        <p>Adopts cquarry 1.17: the Insights no-identifiers section now
+        computes through the shared integrity predicate, and the library
+        singleton exposes refresh_library() as the coherence boundary after
+        external Calibre writes. The Flatpak cquarry pin moves to 1.17.0.</p>
+      </description>
+    </release>
     <release version="1.8.1" date="2026-09-06">
       <description>
         <p>Insights hardening: a failed worker-side database open can no

@@ -127,6 +127,18 @@ def get_cquarry_db() -> CalibreDB:
     return _cquarry_db_instance
 
 
+def refresh_library() -> None:
+    """Drop the shared connection's caches so reads re-query the database.
+
+    cquarry caches lazily and never invalidates on its own, so after Calibre
+    writes externally the singleton would keep answering from stale
+    snapshots. One call restores coherence (cquarry >= 1.17 provides
+    ``refresh()``; the next read repopulates).
+    """
+    if _cquarry_db_instance is not None:
+        _cquarry_db_instance.refresh()
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

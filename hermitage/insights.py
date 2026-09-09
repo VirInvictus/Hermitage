@@ -98,12 +98,14 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
         from cquarry.integrity import (
             find_coverless,
             find_formatless,
+            find_identifierless,
             find_missing_cover_files,
             find_untagged,
         )
 
         untagged = set(find_untagged(db))
         formatless = set(find_formatless(db))
+        identifierless = set(find_identifierless(db))
         no_cover_ids = set(find_coverless(db)) | set(find_missing_cover_files(db))
 
     for b in books:
@@ -128,6 +130,8 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
                 no_tags.append(b)
             if b.id in formatless:
                 no_formats.append(b)
+            if b.id in identifierless:
+                no_identifiers.append(b)
             if b.id in no_cover_ids:
                 no_cover.append(b)
         else:
@@ -137,8 +141,8 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
                 no_formats.append(b)
             if not b.tags:
                 no_tags.append(b)
-        if not b.identifiers:
-            no_identifiers.append(b)
+            if not b.identifiers:
+                no_identifiers.append(b)
 
         if b.rating:
             rated_total += b.rating
