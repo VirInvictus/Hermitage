@@ -240,3 +240,12 @@ shipped (see the phases above for the ticks):
       check" (has_cover governs the row), the worker always lands its
       summary, and a cross-thread regression test pins both sides of the
       behavior. Version 1.8.1 + AppStream + patchnotes.
+
+## Tag policy (2026-09-11; exemption recorded 2026-09-12)
+
+Forward-only from v1.8.3: the historical untagged entries v1.1.0 through
+v1.8.2 are exempt (eleven entries). v1.8.2 joins the exemption per
+Brandon's 2026-09-12 call: it is already sandwiched between tagged
+v1.8.1 and tagged v1.8.3, and backfilling it now would be a gated
+historical backfill. Recorded here per the forward-only + exemption
+template.
