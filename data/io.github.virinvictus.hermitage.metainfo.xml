@@ -85,6 +85,14 @@
        are ready to capture against. -->
 
   <releases>
+    <release version="1.8.3" date="2026-09-12">
+      <description>
+        <p>Adopts cquarry 1.18: search correctness rides the shared read
+        layer (the identifiers presence fix, the strict date/numeric
+        vocabulary, super-quotes, the custom-series index location), and
+        the Flatpak cquarry pin moves to the 1.18.0 release commit.</p>
+      </description>
+    </release>
     <release version="1.8.2" date="2026-09-09">
       <description>
         <p>Adopts cquarry 1.17: the Insights no-identifiers section now

@@ -1,4 +1,19 @@
 # Hermitage — Patch Notes
+
+## v1.8.3 (2026-09-12)
+
+### Cascade: cquarry 1.18 adoption
+
+- **Search correctness through the shared read layer.** cquarry 1.18's
+  honesty pass fixes land here for free: the `identifiers:KEY:TRUE/FALSE`
+  inversion, the sweep-wide bare `true`/`false` presence semantics, the
+  strict date/numeric presence vocabulary (lenient words now raise, exactly
+  like upstream), the super-quote escape hatch, and the custom
+  series `#label_index` location all behave identically to Calibre's own
+  bar now.
+- **The Flatpak cquarry pin moves to the 1.18.0 release commit**
+  (132aa2c). The dev dependency stays the git default branch, so the floor
+  rides the pin.
 ## v1.8.2 (2026-09-09)
 
 ### Cascade: cquarry 1.17 adoption
