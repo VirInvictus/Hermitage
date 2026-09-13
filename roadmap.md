@@ -244,8 +244,57 @@ shipped (see the phases above for the ticks):
 ## Tag policy (2026-09-11; exemption recorded 2026-09-12)
 
 Forward-only from v1.8.3: the historical untagged entries v1.1.0 through
-v1.8.2 are exempt (eleven entries). v1.8.2 joins the exemption per
+v1.8.2 are exempt (ten untagged entries; v1.8.1 inside the range is
+already tagged). v1.8.2 joins the exemption per
 Brandon's 2026-09-12 call: it is already sandwiched between tagged
 v1.8.1 and tagged v1.8.3, and backfilling it now would be a gated
 historical backfill. Recorded here per the forward-only + exemption
 template.
+
+## New findings 2026-09-12 (six-lens full audit; detail: audit/FULL-AUDIT-2026-09-12.md, Wave 16)
+
+- [ ] **HIGH: _find_format_file recurses infinitely when no format file
+      resolves** (codex.py:147-162: the for loop rebinds the fmt
+      parameter, so the retry gate tests the leaked value; RecursionError
+      on every Read click for books with unresolvable files; zero test
+      coverage). Keep the requested name separate and gate the retry on
+      it; the dead fallback loops below fold into the fix.
+- [ ] **Lifecycle/thread fixes:** the enum-pill provider's
+      load_from_string REPLACES earlier rules (multi-value enum columns
+      keep only the last color - accumulate and reload, or one provider
+      per class); the portal SettingChanged handler applies scheme == 1
+      while _query_dark applies scheme != 2 (a live no-preference flip
+      goes light; align); library load catches only FileNotFoundError
+      (broaden to sqlite3.Error/OSError + render the error page); the
+      load runs on the main thread with per-book cover SQL (move to a
+      worker like Insights); connect shutdown to the five
+      ThreadPoolExecutors (quit can hang draining the warm queue); the
+      texture LRU is entry-capped (~1.6GB at 2x) - cap by bytes.
+- [ ] **The README's annotations/reading-progress claim was never
+      built:** get_annotations/get_reading_progress are wrapped, tested,
+      and have zero UI call sites; the roadmap even says "already rendered
+      in the Codex". Either wire the Codex section + the cover progress
+      bar (the recorded "maybe" - cheap, the read surface exists) or
+      reword the README/roadmap to "exposed for future UI".
+- [ ] **Docs sweep:** cquarry floor >=1.8 -> >=1.17/1.18 in CLAUDE.md +
+      spec (refresh_library/find_identifierless need 1.17); the AppStream
+      screenshots TODO is stale (gallery.png exists - add the block);
+      README install implies cquarry is on PyPI (git-only; point at
+      pip install -e .); spec embeds /home/bdkl; search.py references in
+      the roadmap; the lock-test description stale; duplicated Phase 4
+      headings + Library Verification sections; stale build/ artifacts
+      and .claude//result_images missing from .gitignore.
+- [ ] **Blitz candidates:** content:"..." search riding cquarry 1.18's
+      search_book_text (off-thread with cancellation; the pin carries the
+      read unused); the reading-progress wiring (above); rider bundle:
+      Insights audit rows clickable, a Reload Library menu item
+      (refresh_library is dead), avg-rating on genre pills, label_index
+      auto-sort; Flathub submission (screenshots block is
+      Flathub-mandatory; the manifest source must become a git tag;
+      Brandon's onboarding).
+- [ ] **GitHub presentation (workspace batch):** description rewrite
+      (drop backticks, add Flatpak/ebook-library); swap gpl-30/python-314
+      topics for flatpak/ebook-library; Release v1.8.3; more screenshots
+      (the features are all visual). The homepage-404 flag needs
+      verification: user pages serve /codex/* (Atrium's identical pattern
+      is 200) - treat as unverified.
