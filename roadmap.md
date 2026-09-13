@@ -298,3 +298,9 @@ template.
       (the features are all visual). The homepage-404 flag needs
       verification: user pages serve /codex/* (Atrium's identical pattern
       is 200) - treat as unverified.
+      *(Applied 2026-09-13 under decision 60: description re-set without
+      the backticks and naming the Flatpak; gpl-30/python-314 swapped for
+      flatpak/ebook-library (20 topics); Releases cut verbatim from the
+      patchnotes for v1.8.3, v1.8.1, and v1.0.0 with v1.8.3 marked
+      Latest; wiki off, discussions on; homepage kept, the 404 flag was
+      wrong. Still open: the screenshots.)*
