@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import os
+import sqlite3
+import threading
 from pathlib import Path
 
+from cquarry.db import CalibreDB
 from cquarry.search import ParseException
 
 import gi
@@ -19,6 +22,8 @@ from hermitage.codex import CodexView
 from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
 from hermitage.database import (
     Book,
+    _resolve_library_path,
+    get_cquarry_db,
     load_custom_columns,
     load_library,
     load_saved_searches,
@@ -28,7 +33,6 @@ from hermitage.database import (
 )
 from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
-from hermitage.database import get_cquarry_db
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import (
     get_cached_texture,
@@ -725,8 +729,9 @@ class HermitageApp(Gtk.Application):
         # Codex detail view (created before library loads)
         win._codex = CodexView()
 
-        # Loading state — spinner inside the StatusPage so users see motion
-        # while the SQL query runs and the first chrome paints.
+        # Loading state — spinner inside the StatusPage. The SQL read runs
+        # on a worker thread (see _load_library), so the spinner keeps
+        # spinning while the query runs instead of freezing with it.
         status = widgets.StatusPage(
             title="Loading library",
             description="Reading metadata.db…",
@@ -923,24 +928,96 @@ class HermitageApp(Gtk.Application):
     # -- library loading ----------------------------------------------------
 
     def _load_library(self, win: Gtk.ApplicationWindow) -> bool:
-        """Load the Calibre database and build the full UI."""
-        try:
-            books = load_library()
-        except FileNotFoundError as exc:
-            win._toast_overlay.set_child(
-                widgets.StatusPage(
-                    title="Library Not Found",
-                    description=str(exc),
-                    icon_name="dialog-error-symbolic",
+        """Read the Calibre database on a worker thread; land the UI via
+        GLib.idle_add.
+
+        The SQL (load_library, virtual-library defs, custom columns, cover
+        resolution) runs off the UI thread on its own short-lived CalibreDB
+        — the same discipline as the Insights worker, because cquarry
+        connections are single-threaded and the worker must never touch the
+        shared singleton. Only widget construction happens on the main
+        thread. A corrupt, locked, or missing database lands as the error
+        StatusPage instead of a spinner that spins forever.
+        """
+        win._load_cancelled = False
+        win.connect("destroy", self._cancel_load)
+
+        def _work():
+            try:
+                db = CalibreDB(str(_resolve_library_path()))
+            except (FileNotFoundError, sqlite3.DatabaseError, OSError) as exc:
+                GLib.idle_add(self._show_load_error, win, exc)
+                return
+            try:
+                books = load_library(db)
+                vl_defs = load_virtual_libraries(db)
+                custom_cols = load_custom_columns(db)
+                covers = []
+                for b in books:
+                    # Pre-resolved by load_library; the stat stays off the
+                    # UI thread too.
+                    cover = b.cover_path
+                    if cover and cover.is_file():
+                        covers.append(cover)
+            except Exception as exc:
+                # Anything a corrupt/locked/vanishing database can raise
+                # (sqlite3.DatabaseError and friends); render it rather
+                # than stranding the spinner on a dead daemon thread.
+                print(
+                    f"hermitage: library load failed: {type(exc).__name__}: {exc}",
+                    flush=True,
                 )
+                GLib.idle_add(self._show_load_error, win, exc)
+                return
+            finally:
+                db.close()
+            GLib.idle_add(
+                self._finish_library_load, win, books, vl_defs, custom_cols, covers
             )
+
+        threading.Thread(target=_work, daemon=True).start()
+        return GLib.SOURCE_REMOVE
+
+    @staticmethod
+    def _cancel_load(win: Gtk.ApplicationWindow, *_args):
+        """Destroy guard: a load landing after its window died is dropped."""
+        win._load_cancelled = True
+
+    @staticmethod
+    def _show_load_error(win: Gtk.ApplicationWindow, exc: Exception) -> bool:
+        if getattr(win, "_load_cancelled", True):
+            return GLib.SOURCE_REMOVE
+        title = (
+            "Library Not Found"
+            if isinstance(exc, FileNotFoundError)
+            else "Library Unreadable"
+        )
+        win._toast_overlay.set_child(
+            widgets.StatusPage(
+                title=title,
+                description=str(exc),
+                icon_name="dialog-error-symbolic",
+            )
+        )
+        return GLib.SOURCE_REMOVE
+
+    def _finish_library_load(
+        self,
+        win: Gtk.ApplicationWindow,
+        books: list[Book],
+        vl_defs: dict[str, str],
+        custom_cols,
+        covers: list[Path],
+    ) -> bool:
+        """Main-thread continuation: build the UI from the worker's results."""
+        if getattr(win, "_load_cancelled", True):
             return GLib.SOURCE_REMOVE
 
         win._books = books
         # Virtual-library definitions + Calibre's own sidebar layout state
         # (order/hidden), consumed by _build_vl_sidebar.
-        win._vl_defs = load_virtual_libraries()
-        win._codex.set_custom_columns(load_custom_columns())
+        win._vl_defs = vl_defs
+        win._codex.set_custom_columns(custom_cols)
 
         grid = self._build_grid(win, books)
         self._build_layout(win, grid)
@@ -950,9 +1027,6 @@ class HermitageApp(Gtk.Application):
 
         # Pre-generate thumbnails and extract colors in background threads.
         # Show warming progress in the title subtitle until it hits 100%.
-        covers = [
-            b.cover_path for b in books if b.cover_path and b.cover_path.is_file()
-        ]
         # Warm the cache at the window's current scale tier.
         set_default_scale(win.get_scale_factor())
 

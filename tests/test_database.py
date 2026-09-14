@@ -13,6 +13,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from hermitage import database
 from hermitage.database import (
@@ -302,6 +303,67 @@ class TestLoadLibrary(_FixtureBase):
         self.assertEqual(library_root(), self.root)
 
 
+class _StubCoverDB:
+    """Counts get_cover_path calls; optionally raises ValueError."""
+
+    def __init__(self, path="/tmp/lib/A/T (1)/cover.jpg", fail=False):
+        self.path = path
+        self.fail = fail
+        self.calls = 0
+
+    def get_cover_path(self, book_id, verify=False):
+        self.calls += 1
+        if self.fail:
+            raise ValueError("row vanished")
+        return self.path
+
+
+class TestCoverMemo(unittest.TestCase):
+    """cover_path resolves at most once per Book and never raises mid-bind.
+
+    The load worker pre-fills the memo via resolve_cover (its own handle),
+    so grid binds read a field; a row that vanished mid-session counts as
+    coverless instead of crashing a recycled cell.
+    """
+
+    def _book(self):
+        return Book(id=1, title="T", sort="T", authors=[], path="p", has_cover=True)
+
+    def test_resolve_cover_fills_the_memo(self):
+        db = _StubCoverDB()
+        b = self._book()
+        b.resolve_cover(db)
+        self.assertEqual(b.cover_path, Path(db.path))
+        self.assertEqual(db.calls, 1)
+        # Later reads (grid binds, warm sweeps) reuse the memo: no more SQL.
+        self.assertEqual(b.cover_path, Path(db.path))
+        self.assertEqual(db.calls, 1)
+
+    def test_property_memoizes_on_first_read(self):
+        db = _StubCoverDB()
+        b = self._book()
+        with mock.patch("hermitage.database.get_cquarry_db", return_value=db):
+            first = b.cover_path
+            second = b.cover_path
+        self.assertEqual(first, Path(db.path))
+        self.assertEqual(second, first)
+        self.assertEqual(db.calls, 1)
+
+    def test_valueerror_counts_as_coverless(self):
+        b = self._book()
+        b.resolve_cover(_StubCoverDB(fail=True))
+        self.assertIsNone(b.cover_path)
+        # The memo also holds the coverless verdict: no second raise.
+        self.assertIsNone(b.cover_path)
+
+    def test_uncovered_book_never_touches_the_db(self):
+        b = Book(id=1, title="T", sort="T", authors=[], path="p", has_cover=False)
+        with mock.patch(
+            "hermitage.database.get_cquarry_db", side_effect=AssertionError("no")
+        ):
+            self.assertIsNone(b.cover_path)
+
+
 class TestJitComments(_FixtureBase):
     """Phase 15: comments fetch on demand, one book at a time."""
 
@@ -416,7 +478,10 @@ class TestInsightsWorkerFallback(_FixtureBase):
     Book.cover_path. cquarry connections are single-threaded, so the worker
     died on the ProgrammingError and the window sat on "Crunching the
     library…" forever (regression, fixed 1.8.1: the db-less cover check
-    treats an unresolvable path as "cannot check").
+    treats an unresolvable path as "cannot check"). The 1.8.4 cover memo
+    closed the root cause: load_library pre-resolves every cover on the
+    caller's own handle, so cover_path never touches a database again and
+    a worker now audits exactly what the UI thread audits.
     """
 
     def test_summarize_off_ui_thread_survives_the_singleton(self):
@@ -428,10 +493,15 @@ class TestInsightsWorkerFallback(_FixtureBase):
         worker.join(timeout=10)
         self.assertFalse(worker.is_alive(), "summarize never came back")
         self.assertEqual(len(results), 1)
-        # The worker's cover-path resolution raises on the shared connection,
-        # so no book is reported for the missing-file half; has_cover still
-        # governs the row (book 1 has_cover=1, book 2 has_cover=0).
-        self.assertEqual([b.id for b in results[0].no_cover], [2])
+        # Memoized cover paths mean the worker stats the same files the UI
+        # thread would (book 1's cover.jpg is absent from the fixture, so it
+        # is a genuine missing-file row; book 2 has_cover=0): parity, and no
+        # cross-thread exception anywhere on the path.
+        self.assertEqual(
+            [b.id for b in results[0].no_cover],
+            [b.id for b in summarize(books).no_cover],
+        )
+        self.assertEqual([b.id for b in results[0].no_cover], [2, 1])
 
     def test_summarize_on_ui_thread_still_reports_missing_files(self):
         # Same library, same call, UI thread: book 1's absent cover.jpg is

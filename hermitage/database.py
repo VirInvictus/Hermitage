@@ -38,19 +38,52 @@ class Book:
     # to `authors`. Empty strings where the library doesn't carry them.
     author_sorts: list[str] = field(default_factory=list)
     author_links: list[str] = field(default_factory=list)
+    # Memo for cover_path (see resolve_cover): resolved at most once per
+    # Book, so grid binds read a field instead of re-running a SELECT per
+    # cell on the scroll hot path.
+    _cover_file: Path | None = None
+    _cover_resolved: bool = False
 
     @property
     def cover_path(self) -> Path | None:
         """Absolute path to the cover image, or None.
 
         Built through cquarry's get_cover_path() so the storage-layout logic
-        lives in exactly one place across the ecosystem. Unverified on purpose
-        (historical contract): callers already tolerate missing files, and
-        has_cover=0 short-circuits to None without touching the database.
+        lives in exactly one place across the ecosystem, and memoized: the
+        first resolution caches on the instance and later reads never touch
+        the database again. Unverified on purpose (historical contract):
+        callers already tolerate missing files, and has_cover=0
+        short-circuits to None without touching the database. A row that
+        vanished mid-session (ValueError from cquarry) resolves to None —
+        a recycled grid cell must not crash mid-bind over a mismatched
+        title/cover pair.
         """
         if not self.has_cover:
             return None
-        return Path(get_cquarry_db().get_cover_path(self.id, verify=False))
+        if not self._cover_resolved:
+            self._cover_resolved = True
+            try:
+                self._cover_file = Path(
+                    get_cquarry_db().get_cover_path(self.id, verify=False)
+                )
+            except ValueError:
+                self._cover_file = None
+        return self._cover_file
+
+    def resolve_cover(self, db: CalibreDB) -> None:
+        """Pre-resolve cover_path against an explicit handle.
+
+        The load worker calls this with its own short-lived CalibreDB so
+        the memo is filled without touching the shared singleton from the
+        wrong thread (cquarry connections are single-threaded by design).
+        """
+        if not self.has_cover or self._cover_resolved:
+            return
+        self._cover_resolved = True
+        try:
+            self._cover_file = Path(db.get_cover_path(self.id, verify=False))
+        except ValueError:
+            self._cover_file = None
 
 
 @dataclass(slots=True)
@@ -146,13 +179,17 @@ def refresh_library() -> None:
 _custom_columns_cache: list[CustomColumn] | None = None
 
 
-def load_custom_columns() -> list[CustomColumn]:
-    """Return the custom-column schema (cached after the first library load)."""
+def load_custom_columns(db: CalibreDB | None = None) -> list[CustomColumn]:
+    """Return the custom-column schema (cached after the first library load).
+
+    `db` lets a worker thread pass its own short-lived handle; callers on
+    the UI thread omit it and ride the shared singleton.
+    """
     global _custom_columns_cache
     if _custom_columns_cache is not None:
         return _custom_columns_cache
-
-    db = get_cquarry_db()
+    if db is None:
+        db = get_cquarry_db()
     _custom_columns_cache = []
     for col in db.get_custom_columns().values():
         _custom_columns_cache.append(
@@ -193,11 +230,16 @@ def get_all_comments() -> dict[int, str]:
         return {}
 
 
-def load_library() -> list[Book]:
-    """Load every book from the Calibre database (read-only)."""
+def load_library(db: CalibreDB | None = None) -> list[Book]:
+    """Load every book from the Calibre database (read-only).
+
+    `db` lets a worker thread pass its own short-lived handle (the
+    UI-thread load path passes nothing and uses the shared singleton).
+    """
     global _library_root_cache
     _library_root_cache = _resolve_library_path().parent
-    db = get_cquarry_db()
+    if db is None:
+        db = get_cquarry_db()
 
     custom_cols = load_custom_columns()
     custom_values = {col.label: db.load_custom_column(col.name) for col in custom_cols}
@@ -232,29 +274,31 @@ def load_library() -> list[Book]:
         # comma for display.
         authors_list = [a.strip().replace("|", ",") for a in (b["authors"] or [])]
 
-        books.append(
-            Book(
-                id=b["id"],
-                title=b["title"],
-                sort=b["title_sort"] or b["title"],
-                authors=authors_list,
-                path=b["path"],
-                has_cover=bool(b["has_cover"]),
-                series=b["series"],
-                series_index=b["series_index"] or 1.0,
-                rating=b["rating"],
-                tags=list(b["tags"] or []),
-                comment=None,  # JIT: fetched when the Codex opens
-                formats=list(b["formats"] or []),
-                pubdate=b["pubdate"],
-                timestamp=b["timestamp"],
-                identifiers=dict(b["identifiers"] or {}),
-                pages=b.get("pages"),
-                author_sorts=list(b.get("author_sorts") or []),
-                author_links=list(b.get("author_links") or []),
-                custom=_custom_for(b["id"]),
-            )
+        book = Book(
+            id=b["id"],
+            title=b["title"],
+            sort=b["title_sort"] or b["title"],
+            authors=authors_list,
+            path=b["path"],
+            has_cover=bool(b["has_cover"]),
+            series=b["series"],
+            series_index=b["series_index"] or 1.0,
+            rating=b["rating"],
+            tags=list(b["tags"] or []),
+            comment=None,  # JIT: fetched when the Codex opens
+            formats=list(b["formats"] or []),
+            pubdate=b["pubdate"],
+            timestamp=b["timestamp"],
+            identifiers=dict(b["identifiers"] or {}),
+            pages=b.get("pages"),
+            author_sorts=list(b.get("author_sorts") or []),
+            author_links=list(b.get("author_links") or []),
+            custom=_custom_for(b["id"]),
         )
+        # Fill the cover memo on this thread's handle so neither the worker
+        # nor the grid binds ever re-run the resolution query.
+        book.resolve_cover(db)
+        books.append(book)
     return books
 
 
@@ -263,12 +307,15 @@ def load_library() -> list[Book]:
 # ---------------------------------------------------------------------------
 
 
-def load_virtual_libraries() -> dict[str, str]:
+def load_virtual_libraries(db: CalibreDB | None = None) -> dict[str, str]:
     """Read virtual library definitions from the Calibre preferences table.
 
     Returns a dict mapping library name -> Calibre search expression.
+    `db` lets a worker thread pass its own short-lived handle.
     """
-    return get_cquarry_db().get_virtual_libraries()
+    if db is None:
+        db = get_cquarry_db()
+    return db.get_virtual_libraries()
 
 
 def load_saved_searches() -> dict[str, str]:
