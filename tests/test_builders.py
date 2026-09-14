@@ -5,9 +5,16 @@ no widget is ever instantiated here; only the module-level builders and
 dataclasses are exercised.
 """
 
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from hermitage.codex import _clean_html, _IDENTIFIER_LINKS
+from hermitage.codex import (
+    _IDENTIFIER_LINKS,
+    _clean_html,
+    _find_format_file,
+)
 from hermitage.database import Book
 from hermitage.genres import _build_tag_tree, _rolled_counts
 from hermitage.insights import summarize
@@ -155,6 +162,86 @@ class TestIdentifierLinks(unittest.TestCase):
                 url = fmt.format("VALUE")
                 self.assertIn("VALUE", url)
                 self.assertTrue(label)
+
+
+class _FormatMapDB:
+    """Stands in for the CalibreDB singleton with a fixed format map."""
+
+    def __init__(self, fmt_map):
+        self._fmt_map = fmt_map
+
+    def get_formats(self, book_id):
+        return self._fmt_map
+
+
+class TestFindFormatFile(unittest.TestCase):
+    """The format resolver against a temp library tree, db and root stubbed.
+
+    Regression (final audit 2026-09-13): the scan loop used to rebind the
+    `fmt` parameter, so the retry gate tested the leaked last scanned
+    format and every book whose catalogued formats resolved to no file on
+    disk recursed until RecursionError on each Read-button click.
+    """
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        root_patcher = mock.patch(
+            "hermitage.codex.library_root", return_value=self.root
+        )
+        root_patcher.start()
+        self.addCleanup(root_patcher.stop)
+        db_patcher = mock.patch(
+            "hermitage.codex.get_cquarry_db", return_value=_FormatMapDB({})
+        )
+        db_patcher.start()
+        self.addCleanup(db_patcher.stop)
+
+    def _book(self, formats):
+        return Book(
+            id=1,
+            title="t",
+            sort="t",
+            authors=[],
+            path="A/T (1)",
+            has_cover=0,
+            formats=formats,
+        )
+
+    def _fmt_map(self, fmt_map):
+        patcher = mock.patch(
+            "hermitage.codex.get_cquarry_db", return_value=_FormatMapDB(fmt_map)
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _make_dir(self):
+        d = self.root / "A" / "T (1)"
+        d.mkdir(parents=True)
+        return d
+
+    def test_fileless_book_returns_none(self):
+        # Catalogued format, nothing on disk, empty format map: None, and
+        # no recursion (the bug burned ~1000 stack levels per Read click).
+        self.assertIsNone(_find_format_file(self._book(["EPUB"])))
+
+    def test_requested_format_falls_through_then_none(self):
+        # An explicitly requested format that resolves to nothing falls
+        # through to the priority order once, then returns None.
+        self.assertIsNone(_find_format_file(self._book(["EPUB"]), "PDF"))
+
+    def test_glob_fallback_finds_file(self):
+        d = self._make_dir()
+        (d / "novel.epub").write_bytes(b"x")
+        self.assertEqual(_find_format_file(self._book(["EPUB"])), d / "novel.epub")
+
+    def test_catalog_path_wins(self):
+        d = self._make_dir()
+        real = d / "Novel.epub"
+        real.write_bytes(b"x")
+        self._fmt_map({"EPUB": {"path": str(real)}})
+        self.assertEqual(_find_format_file(self._book(["EPUB"])), real)
 
 
 if __name__ == "__main__":

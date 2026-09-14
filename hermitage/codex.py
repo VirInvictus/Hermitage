@@ -144,41 +144,40 @@ def _find_format_file(book: Book, fmt: str | None = None) -> Path | None:
     except Exception:
         fmt_map = {}
 
-    order = [fmt] if fmt else _ordered_formats(book)
-    for fmt in order:
-        if fmt in book.formats:
-            entry = fmt_map.get(fmt)
+    # `requested` holds the caller's format. The scan loops must never
+    # rebind it: the retry gate below compares against what was asked for,
+    # and a rebound name leaked the last scanned format, making the gate
+    # true whenever the book had any catalogued format — every unresolved
+    # lookup recursed until RecursionError.
+    requested = fmt
+    order = [requested] if requested else _ordered_formats(book)
+    for candidate in order:
+        if candidate in book.formats:
+            entry = fmt_map.get(candidate)
             if entry and os.path.exists(entry["path"]):
                 return Path(entry["path"])
-            candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
+            candidates = list(
+                (library_root() / book.path).glob(f"*.{candidate.lower()}")
+            )
             if not candidates:
-                candidates = list((library_root() / book.path).glob(f"*.{fmt}"))
+                candidates = list((library_root() / book.path).glob(f"*.{candidate}"))
             if candidates:
                 return candidates[0]
 
-    if fmt:
+    if requested:
         # The requested format resolved to nothing on disk; fall through to
-        # the priority order rather than handing back nothing.
+        # the priority order rather than handing back nothing. One retry:
+        # this call runs with fmt=None, so it cannot come back here.
         return _find_format_file(book)
 
     # Fallback: try any format present
-    for fmt in book.formats:
-        if fmt in book.formats:
-            entry = fmt_map.get(fmt)
-            if entry and os.path.exists(entry["path"]):
-                return Path(entry["path"])
-            candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
-            if not candidates:
-                candidates = list((library_root() / book.path).glob(f"*.{fmt}"))
-            if candidates:
-                return candidates[0]
-
-    # Fallback: try any format present
-    for fmt in book.formats:
-        entry = fmt_map.get(fmt)
+    for candidate in book.formats:
+        entry = fmt_map.get(candidate)
         if entry and os.path.exists(entry["path"]):
             return Path(entry["path"])
-        candidates = list((library_root() / book.path).glob(f"*.{fmt.lower()}"))
+        candidates = list((library_root() / book.path).glob(f"*.{candidate.lower()}"))
+        if not candidates:
+            candidates = list((library_root() / book.path).glob(f"*.{candidate}"))
         if candidates:
             return candidates[0]
 
