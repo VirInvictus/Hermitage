@@ -127,6 +127,61 @@ _IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
     "uri": ("Link", "{}"),
 }
 
+# Calibre's enumeration columns store ``display.enum_colors`` as a list of
+# color names (its editor offers Qt's color-name list) or hex strings,
+# aligned by index with ``display.enum_values``. GTK CSS accepts the same
+# names, but one invalid declaration would blank the whole provider sheet,
+# so names resolve through this table and hex passes through; anything
+# unrecognized keeps the default pill look, like Calibre's own isValid()
+# guard. Exotic names outside the table lose their tint: a documented,
+# minor divergence from Calibre's rendering.
+_ENUM_COLOR_NAMES: dict[str, str] = {
+    "beige": "#f5f5dc",
+    "black": "#000000",
+    "blue": "#0000ff",
+    "brown": "#a52a2a",
+    "chocolate": "#d2691e",
+    "crimson": "#dc143c",
+    "cyan": "#00ffff",
+    "darkblue": "#00008b",
+    "darkgray": "#a9a9a9",
+    "darkgreen": "#006400",
+    "darkgrey": "#a9a9a9",
+    "darkred": "#8b0000",
+    "gold": "#ffd700",
+    "gray": "#808080",
+    "green": "#008000",
+    "grey": "#808080",
+    "lightblue": "#add8e6",
+    "lightgray": "#d3d3d3",
+    "lightgreen": "#90ee90",
+    "lightgrey": "#d3d3d3",
+    "lime": "#00ff00",
+    "magenta": "#ff00ff",
+    "maroon": "#800000",
+    "navy": "#000080",
+    "olive": "#808000",
+    "orange": "#ffa500",
+    "pink": "#ffc0cb",
+    "purple": "#800080",
+    "red": "#ff0000",
+    "silver": "#c0c0c0",
+    "teal": "#008080",
+    "white": "#ffffff",
+    "yellow": "#ffff00",
+}
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+
+
+def _enum_color_hex(entry) -> str | None:
+    """One enum_colors entry (a color name or hex string) -> hex, or None."""
+    if not isinstance(entry, str):
+        return None
+    if _HEX_COLOR_RE.match(entry):
+        return entry
+    return _ENUM_COLOR_NAMES.get(entry.strip().lower())
+
 
 def _ordered_formats(book: Book) -> list[str]:
     """The book's formats, best-readable first (the priority order), any
@@ -647,23 +702,46 @@ class CodexView(Gtk.Box):
     _enum_classes_issued: set[str] = set()
 
     @classmethod
+    def _enum_color_for(cls, col: CustomColumn, value: str) -> str | None:
+        """Resolve one enum value to a hex tint via the column's
+        enum_values/enum_colors pair (pure; the CSS side needs a display).
+
+        Calibre looks the color up positionally: enum_colors[i] colors
+        enum_values[i]. The original code assumed a value->color dict and
+        crashed with AttributeError on every real column the moment cquarry
+        began decoding the display JSON.
+        """
+        display = col.display or {}
+        values = display.get("enum_values") or []
+        entries = display.get("enum_colors") or []
+        if not isinstance(entries, list) or value not in values:
+            return None
+        index = values.index(value)
+        if index >= len(entries):
+            # Calibre's editor writes all-or-nothing colors, but data can
+            # drift; a value past the end of the colors list is untinted,
+            # not a crash.
+            return None
+        return _enum_color_hex(entries[index])
+
+    @classmethod
     def _apply_enum_color(cls, pill: Gtk.Button, col: CustomColumn, value: str):
         """Tint an enumeration pill with its Calibre ``enum_colors`` entry.
 
-        Colors come from the column's ``display`` JSON (cquarry >=1.4). Each
-        distinct value gets one generated CSS class on one shared provider,
-        which accumulates a rule per class: load_from_string REPLACES the
-        provider's whole sheet, so every reload carries all rules issued so
-        far (loading one rule at a time silently dropped every earlier
-        class once a column had two or more colored values). Unknown values
-        keep the theme's default pill look.
+        Each distinct (column, value) gets one generated CSS class on one
+        shared provider, which accumulates a rule per class:
+        load_from_string REPLACES the provider's whole sheet, so every
+        reload carries all rules issued so far (loading one rule at a time
+        silently dropped every earlier class once a column had two or more
+        colored values). Unresolvable colors keep the theme's default pill
+        look.
         """
-        colors = (col.display or {}).get("enum_colors") or {}
-        color = colors.get(value)
-        if not isinstance(color, str) or not color.startswith("#"):
+        color = cls._enum_color_for(col, value)
+        if not color:
             return
-        css_class = "enum-color-" + "".join(
-            c if c.isalnum() else "-" for c in value.lower()
+        css_class = "enum-color-{}-{}".format(
+            col.id,
+            "".join(c if c.isalnum() else "-" for c in value.lower()),
         )
         if css_class not in cls._enum_classes_issued:
             provider = cls._enum_css_provider

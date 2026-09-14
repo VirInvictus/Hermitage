@@ -12,10 +12,12 @@ from unittest import mock
 
 from hermitage.codex import (
     _IDENTIFIER_LINKS,
+    CodexView,
     _clean_html,
+    _enum_color_hex,
     _find_format_file,
 )
-from hermitage.database import Book
+from hermitage.database import Book, CustomColumn
 from hermitage.genres import _build_tag_tree, _rolled_counts
 from hermitage.insights import summarize
 from hermitage.series import SeriesEntry, _build_series_index
@@ -162,6 +164,74 @@ class TestIdentifierLinks(unittest.TestCase):
                 url = fmt.format("VALUE")
                 self.assertIn("VALUE", url)
                 self.assertTrue(label)
+
+
+class TestEnumColorFor(unittest.TestCase):
+    """enum_colors resolves positionally, Calibre's real shape, or None.
+
+    Regression (found on the 1.8.4 smoke run): the old code assumed a
+    value->color dict and raised AttributeError on every real enum column
+    (colors is a list aligned with enum_values), crashing the Codex on
+    any book carrying a value in that column.
+    """
+
+    def _col(self, display):
+        return CustomColumn(
+            id=3,
+            label="status",
+            name="Status",
+            datatype="enumeration",
+            is_multiple=False,
+            display=display,
+        )
+
+    def test_positional_resolution(self):
+        col = self._col(
+            {
+                "enum_values": ["To Read", "Reading", "Read"],
+                "enum_colors": ["red", "gold", "#00ff00"],
+            }
+        )
+        self.assertEqual(CodexView._enum_color_for(col, "To Read"), "#ff0000")
+        self.assertEqual(CodexView._enum_color_for(col, "Reading"), "#ffd700")
+        self.assertEqual(CodexView._enum_color_for(col, "Read"), "#00ff00")
+
+    def test_value_not_in_values(self):
+        col = self._col({"enum_values": ["a"], "enum_colors": ["red"]})
+        self.assertIsNone(CodexView._enum_color_for(col, "b"))
+
+    def test_empty_missing_or_odd_colors(self):
+        self.assertIsNone(
+            CodexView._enum_color_for(self._col({"enum_values": ["a"]}), "a")
+        )
+        self.assertIsNone(
+            CodexView._enum_color_for(
+                self._col({"enum_values": ["a"], "enum_colors": []}), "a"
+            )
+        )
+        self.assertIsNone(CodexView._enum_color_for(self._col({}), "a"))
+        # A dict shape is not Calibre's; treated as no colors, not a crash.
+        self.assertIsNone(
+            CodexView._enum_color_for(
+                self._col({"enum_values": ["a"], "enum_colors": {"a": "#ff0000"}}),
+                "a",
+            )
+        )
+
+    def test_unknown_name_and_non_string(self):
+        col = self._col({"enum_values": ["a", "b"], "enum_colors": ["chartreuse2", 5]})
+        self.assertIsNone(CodexView._enum_color_for(col, "a"))
+        self.assertIsNone(CodexView._enum_color_for(col, "b"))
+
+    def test_hex_passthrough(self):
+        col = self._col({"enum_values": ["a"], "enum_colors": ["#aB12cD"]})
+        self.assertEqual(CodexView._enum_color_for(col, "a"), "#aB12cD")
+
+    def test_enum_color_hex_names(self):
+        self.assertEqual(_enum_color_hex("GREY"), "#808080")
+        self.assertEqual(_enum_color_hex(" grey "), "#808080")
+        self.assertIsNone(_enum_color_hex("not-a-color"))
+        self.assertIsNone(_enum_color_hex(None))
 
 
 class _FormatMapDB:
