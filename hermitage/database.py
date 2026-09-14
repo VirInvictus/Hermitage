@@ -153,6 +153,19 @@ _cquarry_db_instance: CalibreDB | None = None
 
 
 def get_cquarry_db() -> CalibreDB:
+    """The app-lifetime read-only connection (the shared singleton).
+
+    Two invariants everything else assumes:
+
+    - **Read-only provenance.** The handle is opened by cquarry against its
+      read-only URI (db_uri_ro); Hermitage never passes a write-capable
+      mode and nothing outside cquarry touches db.conn. This is the whole
+      Calibre side of the read-only guarantee.
+    - **Main-thread only.** cquarry connections are single-threaded by
+      design (sqlite raises ProgrammingError cross-thread). Every worker
+      (library load, Insights) opens its OWN short-lived CalibreDB instead
+      of touching this one.
+    """
     global _cquarry_db_instance
     if _cquarry_db_instance is None:
         db_path = _resolve_library_path()
@@ -208,10 +221,10 @@ def load_custom_columns(db: CalibreDB | None = None) -> list[CustomColumn]:
 def get_comment_for(book_id: int) -> str | None:
     """One book's raw comment HTML, fetched on demand (JIT loading).
 
-    A short-lived CalibreDB, per cquarry's short-lived single-threaded
-    design — this runs on Codex activation, not at startup. Returns None
-    when the book has no comment row or cannot be read; empty string is
-    never returned (callers test truthiness).
+    Reads through the shared app-lifetime singleton — this runs on Codex
+    activation on the UI thread, not at startup, and never from a worker.
+    Returns None when the book has no comment row or cannot be read; empty
+    string is never returned (callers test truthiness).
     """
     try:
         row = get_cquarry_db().get_book(book_id, include_comments=True)

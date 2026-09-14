@@ -25,6 +25,7 @@ from hermitage.thumbnailer import get_cached_texture, request_texture
 # ---------------------------------------------------------------------------
 
 _BLUR_CACHE_DIR = Path.home() / ".cache" / "hermitage" / "blur"
+# Hero-blur pool; lives until HermitageApp.do_shutdown calls shutdown_blur().
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="hermitage-blur")
 
 
@@ -598,6 +599,7 @@ class CodexView(Gtk.Box):
                 from datetime import datetime
 
                 dt = datetime.fromisoformat(book.pubdate)
+                # Calibre's "undefined date" sentinel is year 101.
                 if dt.year > 101:
                     self._pubdate_label.set_text(
                         f"Published:  {dt.strftime('%B %d, %Y')}",

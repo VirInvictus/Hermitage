@@ -16,6 +16,7 @@ from hermitage.codex import (
     _clean_html,
     _enum_color_hex,
     _find_format_file,
+    _ordered_formats,
 )
 from hermitage.database import Book, CustomColumn
 from hermitage.genres import _build_tag_tree, _rolled_counts
@@ -314,22 +315,9 @@ class TestFindFormatFile(unittest.TestCase):
         self.assertEqual(_find_format_file(self._book(["EPUB"])), real)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 # format ordering (codex's multi-format selector)
-try:
-    from hermitage.codex import _ordered_formats
-except Exception:
-    _ordered_formats = None
-
-
-@unittest.skipIf(_ordered_formats is None, "codex import unavailable")
 class TestOrderedFormats(unittest.TestCase):
     def _book(self, formats):
-        from hermitage.database import Book
-
         return Book(
             id=1,
             title="t",
@@ -348,3 +336,7 @@ class TestOrderedFormats(unittest.TestCase):
 
     def test_single_format_stays_alone(self):
         self.assertEqual(_ordered_formats(self._book(["EPUB"])), ["EPUB"])
+
+
+if __name__ == "__main__":
+    unittest.main()

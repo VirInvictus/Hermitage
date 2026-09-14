@@ -33,7 +33,7 @@ class SeriesEntry:
 
     @property
     def index_range(self) -> str:
-        """Human-readable index span — '#1' or '#1 → #7' or '#1 → #7 (gaps)'."""
+        """Human-readable index span — '#1' or '#1 → #7' or '#1 → #7 (incomplete)'."""
         if not self.books:
             return ""
         indices = sorted({b.series_index for b in self.books})

@@ -35,6 +35,7 @@ NUM_COLORS = 5  # Top N dominant colors to extract
 
 # Like the thumbnailer: interactive requests get their own pool so visible
 # cells never queue behind the whole-library warm_color_cache() sweep.
+# Both pools live until HermitageApp.do_shutdown calls shutdown().
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="hermitage-color")
 _warm_executor = ThreadPoolExecutor(
     max_workers=2, thread_name_prefix="hermitage-color-warm"

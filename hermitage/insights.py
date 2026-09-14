@@ -46,20 +46,23 @@ class LibrarySummary:
     no_identifiers: list[Book]
     rated_count: int
     # Average rating on Calibre's 0-10 scale (render divides by 2 for 0-5).
-    # Float, not floor-divided: [9, 10] averaged to 4.5 under `//`, a half
-    # star below the true 4.75.
+    # The x10 is Calibre's native storage scale (2 points per star), not a
+    # display multiplier. Float, not floor-divided: [9, 10] averaged to 4.5
+    # under `//`, a half star below the true 4.75.
     avg_rating_x10: float
 
 
 def _cover_file_missing(b: Book) -> bool:
     """True when the book's cover row exists but its file is gone.
 
-    `b.cover_path` resolves through the shared UI-thread singleton
-    (`database.get_cquarry_db`) and cquarry connections are single-threaded:
-    from any other thread the resolution raises, which used to kill the
-    Insights worker mid-summary and leave the window on its placeholder
-    forever. An unresolvable path therefore counts as "cannot check", not
-    "missing"; on the UI thread nothing raises and the check stays exact.
+    `b.cover_path` is memoized at load time (database.Book.resolve_cover),
+    so books from a normal load never re-query here — the check is a plain
+    stat on any thread. The try/except stays as belt-and-braces for Books
+    whose path was not pre-resolved: resolution falls back to the shared
+    UI-thread singleton and cquarry connections are single-threaded, so a
+    non-UI caller would see a raise. An unresolvable path counts as
+    "cannot check", not "missing"; on the UI thread nothing raises and the
+    check stays exact.
     """
     try:
         p = b.cover_path
@@ -79,8 +82,9 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
     window.
     Known, intended difference on the db path: the cover row merges
     cquarry's split predicates (flag-less OR missing file), which adopts
-    canonical resolution — a cover.png-only book counts as covered. There is
-    no identifiers predicate upstream, so that row always stays inline.
+    canonical resolution — a cover.png-only book counts as covered. The
+    identifiers row runs through cquarry.integrity.find_identifierless on
+    the db path (1.8.2); only the db-less fallback keeps its inline check.
     """
     tag_counter: Counter[str] = Counter()
     author_counter: Counter[str] = Counter()

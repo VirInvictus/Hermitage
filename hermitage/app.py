@@ -785,7 +785,7 @@ class HermitageApp(Gtk.Application):
         """Build the header bar (as the window titlebar), search bar, and the
         ToastOverlay that hosts the main content.
 
-        Window buttons are hidden \u2014 the compositor draws no titlebar of its own
+        Window buttons are hidden — the compositor draws no titlebar of its own
         (Hyprland-native); Ctrl+Q quits.
         """
         # Header bar, installed as the real titlebar.
@@ -810,7 +810,7 @@ class HermitageApp(Gtk.Application):
         win._series_btn.set_tooltip_text("Browse series")
         header.pack_start(win._series_btn)
 
-        # Search bar \u2014 kept in a field; placed into the content column below the
+        # Search bar — kept in a field; placed into the content column below the
         # titlebar in _build_layout (it slides open on its own).
         search_bar = Gtk.SearchBar()
         search_bar.set_show_close_button(True)
