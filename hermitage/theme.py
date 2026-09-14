@@ -183,9 +183,20 @@ def _unwrap(variant: GLib.Variant) -> GLib.Variant:
     return variant
 
 
+def _scheme_is_dark(scheme: int) -> bool:
+    """Portal color-scheme value -> dark?
+
+    1=dark, 2=light; 0 (no preference) and a missing portal take the dark
+    default. Both the startup query and the live SettingChanged handler
+    must map values through this one function: the handler used to apply
+    `scheme == 1`, so a live flip to "no preference" went light while the
+    same value at startup stayed dark.
+    """
+    return scheme != 2
+
+
 def _query_dark() -> bool:
-    """Ask the portal for the preferred colour scheme. 1=dark, 2=light,
-    0/none/no-portal → dark default."""
+    """Ask the portal for the preferred colour scheme (dark default)."""
     try:
         proxy = _get_proxy()
         try:
@@ -206,9 +217,7 @@ def _query_dark() -> bool:
                 None,
             )
         scheme = _unwrap(result.get_child_value(0)).get_uint32()
-        # 2=light; 0 (no preference) and 1 (dark) both take the dark default,
-        # which the docstring promises and which `== 1` silently broke.
-        return scheme != 2
+        return _scheme_is_dark(scheme)
     except (GLib.Error, Exception):
         return True  # no portal backend — Hermitage defaults to dark
 
@@ -228,6 +237,8 @@ def _on_signal(proxy, sender_name, signal_name, params):
         key = params.get_child_value(1).get_string()
         if namespace == _APPEARANCE and key == _COLOR_SCHEME:
             scheme = _unwrap(params.get_child_value(2)).get_uint32()
-            _apply(scheme == 1)
+            # Same mapping as the startup query — see _scheme_is_dark for
+            # the `== 1` this replaced.
+            _apply(_scheme_is_dark(scheme))
     except (GLib.Error, Exception):
         pass
