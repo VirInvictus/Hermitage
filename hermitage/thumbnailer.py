@@ -69,10 +69,18 @@ def _thumb_dims(scale: int) -> tuple[int, int]:
 
 
 # In-memory texture cache — holds decoded Gdk.Textures so bind() never
-# touches disk for recently-seen covers.  512 entries ≈ 4-5 screenfuls.
-# Keyed by (cover, scale): the same cover at 1x and 2x are distinct textures.
-_TEXTURE_CACHE_MAX = 512
+# touches disk for recently-seen covers. Bounded by BYTES, not entries:
+# one 2x texture is ~3.1 MB decoded (720x1080x4) against ~0.8 MB at 1x,
+# so the old 512-entry ceiling alone let the cache reach ~1.6 GB on a
+# HiDPI display. 512 MiB keeps several screenfuls resident at any scale.
+# Keyed by (cover, scale): the same cover at 1x and 2x are distinct
+# textures.
+_TEXTURE_CACHE_MAX_BYTES = 512 * 1024 * 1024
+# Secondary ceiling for tiny textures, so the LRU cannot grow without
+# bound on entries alone either.
+_TEXTURE_CACHE_MAX_ENTRIES = 4096
 _texture_cache: OrderedDict[tuple[Path, int], Gdk.Texture] = OrderedDict()
+_texture_bytes_cached = 0
 _texture_lock = threading.Lock()
 
 # Interactive requests (visible cells, Codex hero) get their own pool so they
@@ -153,14 +161,29 @@ def get_cached_texture(cover: Path, scale: int | None = None) -> Gdk.Texture | N
         return tex
 
 
-def _store_texture(cover: Path, scale: int, texture: Gdk.Texture):
-    """Insert a texture into the LRU cache, evicting the oldest if full."""
+def _texture_size_bytes(texture) -> int:
+    """Approximate decoded size of a texture (RGBA in video memory)."""
+    return texture.get_width() * texture.get_height() * 4
+
+
+def _store_texture(cover: Path, scale: int, texture):
+    """Insert a texture into the byte-bounded LRU, evicting oldest-first."""
+    global _texture_bytes_cached
     key = (cover, scale)
+    size = _texture_size_bytes(texture)
     with _texture_lock:
+        replaced = _texture_cache.pop(key, None)
+        if replaced is not None:
+            _texture_bytes_cached -= _texture_size_bytes(replaced)
         _texture_cache[key] = texture
         _texture_cache.move_to_end(key)
-        while len(_texture_cache) > _TEXTURE_CACHE_MAX:
-            _texture_cache.popitem(last=False)
+        _texture_bytes_cached += size
+        while _texture_cache and (
+            _texture_bytes_cached > _TEXTURE_CACHE_MAX_BYTES
+            or len(_texture_cache) > _TEXTURE_CACHE_MAX_ENTRIES
+        ):
+            _, evicted = _texture_cache.popitem(last=False)
+            _texture_bytes_cached -= _texture_size_bytes(evicted)
 
 
 # ---------------------------------------------------------------------------
