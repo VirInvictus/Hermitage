@@ -18,8 +18,9 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from hermitage import theme, widgets
-from hermitage.codex import CodexView, shutdown_blur as shutdown_codex
+from hermitage.codex import BLUR_CACHE_DIR, CodexView, shutdown_blur as shutdown_codex
 from hermitage.colors import (
+    CACHE_DIR as COLORS_CACHE_DIR,
     get_cached_colors,
     request_colors,
     shutdown as shutdown_colors,
@@ -40,6 +41,9 @@ from hermitage.database import (
 from hermitage.genres import GenreBrowser
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import (
+    CACHE_BUDGET_BYTES as _THUMBS_BUDGET,
+    CACHE_DIR as THUMBS_CACHE_DIR,
+    enforce_cache_budget,
     get_cached_texture,
     request_texture,
     set_default_scale,
@@ -429,6 +433,23 @@ def first_index_with_prefix(sort_titles: list[str], prefix: str) -> int | None:
 # ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
+
+
+# Disk-cache budgets: the mtime-keyed caches orphan entries whenever a
+# cover changes, so they only ever grow. Swept on the load worker, oldest
+# files first; everything deleted regenerates on demand.
+_COLORS_BUDGET = 32 * 1024 * 1024
+_BLUR_BUDGET = 128 * 1024 * 1024
+
+
+def _sweep_caches() -> None:
+    """Bound the disk caches (no-op while each dir is under budget)."""
+    for root, budget in (
+        (THUMBS_CACHE_DIR, _THUMBS_BUDGET),
+        (COLORS_CACHE_DIR, _COLORS_BUDGET),
+        (BLUR_CACHE_DIR, _BLUR_BUDGET),
+    ):
+        enforce_cache_budget(root, budget)
 
 
 class HermitageApp(Gtk.Application):
@@ -977,6 +998,7 @@ class HermitageApp(Gtk.Application):
                     cover = b.cover_path
                     if cover and cover.is_file():
                         covers.append(cover)
+                _sweep_caches()
             except Exception as exc:
                 # Anything a corrupt/locked/vanishing database can raise
                 # (sqlite3.DatabaseError and friends); render it rather
@@ -1572,7 +1594,7 @@ class HermitageApp(Gtk.Application):
                 if str(k).lower() == name.lower():
                     try:
                         return (0, float(pos), name.lower())
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         return (1, 0.0, name.lower())
             return (1, 0.0, name.lower())
 

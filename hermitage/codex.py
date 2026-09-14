@@ -24,9 +24,15 @@ from hermitage.thumbnailer import get_cached_texture, request_texture
 # Hero banner blur generator
 # ---------------------------------------------------------------------------
 
-_BLUR_CACHE_DIR = Path.home() / ".cache" / "hermitage" / "blur"
+from PIL import ImageFile
+
+BLUR_CACHE_DIR = Path.home() / ".cache" / "hermitage" / "blur"
 # Hero-blur pool; lives until HermitageApp.do_shutdown calls shutdown_blur().
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="hermitage-blur")
+
+# Match thumbnailer/colors: tolerate truncated covers in the hero blur.
+# Set once at import instead of re-arming per call on a worker thread.
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def shutdown_blur() -> None:
@@ -38,9 +44,7 @@ def _generate_blurred_cover(cover: Path) -> Path | None:
     """Create a heavily blurred, darkened cover for the hero banner background."""
     import sys
 
-    from PIL import Image, ImageEnhance, ImageFile, ImageFilter, UnidentifiedImageError
-
-    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
 
     try:
         stat = cover.stat()
@@ -48,12 +52,12 @@ def _generate_blurred_cover(cover: Path) -> Path | None:
             return None
         key = f"blur:{cover}:{stat.st_mtime_ns}:{stat.st_size}"
         digest = hashlib.blake2b(key.encode(), digest_size=16).hexdigest()
-        blur_path = _BLUR_CACHE_DIR / f"{digest}.jpg"
+        blur_path = BLUR_CACHE_DIR / f"{digest}.jpg"
 
         if blur_path.is_file():
             return blur_path
 
-        _BLUR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        BLUR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
         with Image.open(cover) as img:
             img = img.convert("RGB").resize((800, 400), Image.LANCZOS)
@@ -62,7 +66,12 @@ def _generate_blurred_cover(cover: Path) -> Path | None:
             img.save(blur_path, "JPEG", quality=80)
 
         return blur_path
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
+    except (
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        OSError,
+        ValueError,
+    ) as exc:
         print(
             f"hermitage: hero blur failed for {cover}: {type(exc).__name__}: {exc}",
             file=sys.stderr,
@@ -605,7 +614,7 @@ class CodexView(Gtk.Box):
                         f"Published:  {dt.strftime('%B %d, %Y')}",
                     )
                     self._pubdate_label.set_visible(True)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
 
         # Read button
@@ -778,7 +787,7 @@ class CodexView(Gtk.Box):
                 parsed = datetime.fromisoformat(str(value))
                 if parsed.year > 101:  # Calibre's "undefined date" sentinel is year 101
                     return parsed.strftime("%B %d, %Y")
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
             return str(value)
         if dt == "bool":
@@ -789,7 +798,7 @@ class CodexView(Gtk.Box):
             try:
                 f = float(value)
                 return str(int(f)) if f == int(f) else str(f)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return str(value)
         return str(value)
 

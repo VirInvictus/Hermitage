@@ -236,11 +236,14 @@ def get_comment_for(book_id: int) -> str | None:
 
 
 def get_all_comments() -> dict[int, str]:
-    """Bulk {book_id: html} for exports (cquarry's sanctioned bulk read)."""
-    try:
-        return get_cquarry_db().get_comments()
-    except Exception:
-        return {}
+    """Bulk {book_id: html} for exports (cquarry's sanctioned bulk read).
+
+    Raises on failure rather than returning {}: an empty map would make
+    the export silently write comment:null for the whole library,
+    contradicting the "synopses never export as absent" contract. The
+    export action catches and surfaces the error.
+    """
+    return get_cquarry_db().get_comments()
 
 
 def load_library(db: CalibreDB | None = None) -> list[Book]:

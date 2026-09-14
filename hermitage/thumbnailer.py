@@ -39,6 +39,11 @@ THUMB_BASE_HEIGHT = 540
 THUMB_QUALITY = 85
 CACHE_DIR = Path.home() / ".cache" / "hermitage" / "thumbs"
 
+# Entries are keyed by source mtime+size, so a re-saved cover orphans the
+# old thumbnail forever; the budget bounds that growth. The load worker
+# sweeps on startup via enforce_cache_budget().
+CACHE_BUDGET_BYTES = 512 * 1024 * 1024
+
 # Display scale factor (1 on a standard display; 2/3 on HiDPI, and the integer
 # GTK renders at under Hyprland fractional scaling — get_scale_factor() is
 # always an integer). Covers are cached per-tier under thumbs/<scale>/ so a 2x
@@ -133,7 +138,12 @@ def _generate_thumbnail(cover: Path, scale: int) -> Path | None:
                 img = img.convert("RGB")
             img.save(thumb, "JPEG", quality=THUMB_QUALITY, optimize=True)
         return thumb
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
+    except (
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        OSError,
+        ValueError,
+    ) as exc:
         _warn_once(cover, f"thumbnail failed ({type(exc).__name__}: {exc})")
         return None
 
@@ -260,6 +270,40 @@ def warm_cache(covers: list[Path], progress=None, scale: int | None = None):
 
     for cover in covers:
         _warm_executor.submit(_track, cover)
+
+
+def enforce_cache_budget(root: Path, budget_bytes: int) -> None:
+    """Delete oldest-files-first until the cache dir fits its budget.
+
+    Pure reclamation: anything deleted is regenerated on demand. Files
+    with unreachable mtimes sort last (kept); an unreadable file is left
+    alone. Runs on the load worker; failures are non-fatal by contract.
+    """
+    try:
+        entries = []
+        total = 0
+        for p in root.rglob("*"):
+            try:
+                if p.is_file():
+                    stat = p.stat()
+                    entries.append((stat.st_mtime_ns, stat.st_size, p))
+                    total += stat.st_size
+            except OSError:
+                continue
+        if total <= budget_bytes:
+            return
+        entries.sort()
+        for _mtime, size, p in entries:
+            if total <= budget_bytes:
+                return
+            try:
+                size = p.stat().st_size  # re-stat: may have vanished
+                p.unlink()
+            except OSError:
+                continue
+            total -= size
+    except OSError:
+        return
 
 
 def shutdown() -> None:
