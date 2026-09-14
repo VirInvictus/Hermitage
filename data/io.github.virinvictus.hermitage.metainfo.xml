@@ -87,6 +87,19 @@
        v1.0.0; only the captures are outstanding. -->
 
   <releases>
+    <release version="1.8.4" date="2026-09-14">
+      <description>
+        <p>Stability and responsiveness: the detail view no longer crashes
+        on enum columns (colors resolve Calibre's real enum_colors shape
+        and now actually render), the Read button survives books whose
+        format files are missing, the library loads on a worker thread
+        with a real error page for corrupt or locked databases, quit no
+        longer drains the cover-warm queues, and the live dark/light
+        handler agrees with the startup one. The docs and packaging state
+        the effective Python floor honestly, and the Flatpak manifest
+        source becomes this release's git tag.</p>
+      </description>
+    </release>
     <release version="1.8.3" date="2026-09-12">
       <description>
         <p>Adopts cquarry 1.18: search correctness rides the shared read

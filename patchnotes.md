@@ -1,5 +1,57 @@
 # Hermitage — Patch Notes
 
+## v1.8.4 (2026-09-14)
+
+### The final blitz: crash fixes, the worker load, and build truth
+
+- **Opening the Codex no longer crashes on enum columns.** Calibre
+  stores `display.enum_colors` as a list of color names aligned by
+  index with `enum_values`; the code assumed a value-to-hex dict and
+  raised AttributeError on every book carrying a reading_status or
+  source value from the moment cquarry began decoding the display JSON
+  (1.7.0). Colors now resolve positionally (names map through a
+  CSS-name table, hex passes through), and the enum provider loads at
+  the app stylesheet's priority so the tint finally out-ranks the
+  pill's `background: none`: verified on the live session, a "Read"
+  pill renders Calibre's green.
+- **The Read button no longer explodes on fileless books.**
+  `_find_format_file` rebound its `fmt` parameter in the scan loop, so
+  the post-loop retry gate tested the leaked last element, and every
+  book whose catalogued formats resolved to no file on disk recursed
+  about 1000 SQL-re-running levels into RecursionError on each click.
+- **The library load runs on a worker thread.** The SQL read (books,
+  virtual libraries, custom columns, cover resolution) moves off the
+  UI thread onto its own short-lived CalibreDB, the same discipline as
+  Insights, and a corrupt, locked, or missing database lands as an
+  error page instead of a spinner that spins forever. Cover paths are
+  memoized per book at load: grid binds read a field instead of
+  re-running a SELECT per cell, and a cover row that vanished
+  mid-session renders the placeholder rather than crashing the bind.
+- **Quit no longer drains the warm queues.** The five thread pools
+  (thumbnail and color, interactive plus warm, and hero blur) shut
+  down with cancel_futures on app shutdown; the texture LRU is
+  byte-bounded at 512 MiB (the 512-entry ceiling let about 1.6 GB pile
+  up at 2x), and the disk caches sweep oldest-first under budgets on
+  startup.
+- **Portal dark/light: a live flip to "no preference" now stays dark**,
+  matching the startup read; both paths map values through one rule.
+- **Small correctness:** replaced covers regenerate their glow colors
+  (the color caches key on the cover's mtime and size),
+  DecompressionBombError is caught by all three image handlers, a
+  uniform cover no longer breaks color extraction, exports fail loudly
+  instead of silently writing comment:null library-wide, and type-ahead
+  caches its title list between keystrokes.
+- **Docs tell the truth:** the effective Python floor for installs is
+  3.14 (every cquarry release requires it; Hermitage's own code stays
+  3.13-compatible for the GNOME 50 runtime, and a ruff target pin keeps
+  the except-groups parenthesized); the metainfo 1.8.3 entry is
+  annotated because the pinned cquarry 1.18.0 cannot build under that
+  runtime, with the resolution still being decided.
+  hermitage-verify's wording now says what it actually checks; cquarry
+  is credited as the read-only enforcement layer; the Flatpak manifest
+  gets a README mention and its source becomes this release's git tag.
+- Tests 67 → 95.
+
 ## v1.8.3 (2026-09-12)
 
 ### Cascade: cquarry 1.18 adoption
@@ -14,6 +66,7 @@
 - **The Flatpak cquarry pin moves to the 1.18.0 release commit**
   (132aa2c). The dev dependency stays the git default branch, so the floor
   rides the pin.
+
 ## v1.8.2 (2026-09-09)
 
 ### Cascade: cquarry 1.17 adoption

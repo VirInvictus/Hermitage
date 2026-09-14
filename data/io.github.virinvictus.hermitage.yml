@@ -184,5 +184,9 @@ modules:
         install -Dm644 data/io.github.virinvictus.hermitage.metainfo.xml
         ${FLATPAK_DEST}/share/metainfo/io.github.virinvictus.hermitage.metainfo.xml
     sources:
-      - type: dir
-        path: ..
+      # The release tag, per the Flathub requirement that builders fetch
+      # clean tagged source (type: dir cannot work there). Forward-only
+      # tag policy: this reference never moves.
+      - type: git
+        url: https://github.com/VirInvictus/Hermitage.git
+        tag: v1.8.4
