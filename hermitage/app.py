@@ -1127,6 +1127,23 @@ class HermitageApp(Gtk.Application):
         """
         win._typeahead = ""
         win._typeahead_id = 0
+        # Sort-title cache: building it walked the whole filtered model on
+        # every keystroke; invalidate on any model change instead.
+        win._typeahead_titles = None
+
+        def _invalidate_titles(*_args):
+            win._typeahead_titles = None
+            return GLib.SOURCE_REMOVE
+
+        win._filtered_model.connect("items-changed", _invalidate_titles)
+
+        def _sort_titles():
+            if win._typeahead_titles is None:
+                model = win._filtered_model
+                win._typeahead_titles = [
+                    model.get_item(i).book.sort for i in range(model.get_n_items())
+                ]
+            return win._typeahead_titles
 
         def _reset():
             win._typeahead = ""
@@ -1151,9 +1168,7 @@ class HermitageApp(Gtk.Application):
                 GLib.source_remove(win._typeahead_id)
             win._typeahead_id = GLib.timeout_add(1000, _reset)
 
-            model = win._filtered_model
-            titles = [model.get_item(i).book.sort for i in range(model.get_n_items())]
-            idx = first_index_with_prefix(titles, win._typeahead)
+            idx = first_index_with_prefix(_sort_titles(), win._typeahead)
             if idx is not None:
                 grid.scroll_to(
                     idx,
@@ -1594,7 +1609,7 @@ class HermitageApp(Gtk.Application):
                 if str(k).lower() == name.lower():
                     try:
                         return (0, float(pos), name.lower())
-                    except TypeError, ValueError:
+                    except (TypeError, ValueError):
                         return (1, 0.0, name.lower())
             return (1, 0.0, name.lower())
 

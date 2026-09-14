@@ -614,7 +614,7 @@ class CodexView(Gtk.Box):
                         f"Published:  {dt.strftime('%B %d, %Y')}",
                     )
                     self._pubdate_label.set_visible(True)
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 pass
 
         # Read button
@@ -787,7 +787,7 @@ class CodexView(Gtk.Box):
                 parsed = datetime.fromisoformat(str(value))
                 if parsed.year > 101:  # Calibre's "undefined date" sentinel is year 101
                     return parsed.strftime("%B %d, %Y")
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 pass
             return str(value)
         if dt == "bool":
@@ -798,7 +798,7 @@ class CodexView(Gtk.Box):
             try:
                 f = float(value)
                 return str(int(f)) if f == int(f) else str(f)
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 return str(value)
         return str(value)
 

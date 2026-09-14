@@ -46,6 +46,13 @@ namespaces = false
 [tool.setuptools.package-data]
 hermitage = ["*.css", "fonts/*.ttf", "fonts/*.txt", "fonts/README.md"]
 
+[tool.ruff]
+# The runtime floor drives the tooling target, not requires-python: the
+# GNOME 50 Flatpak runtime ships Python 3.13, where PEP 758 bare
+# except-groups are a SyntaxError, so format must keep them
+# parenthesized (a py314 target makes the formatter strip them).
+target-version = "py313"
+
 [tool.ruff.lint.per-file-ignores]
 # The gi.require_version() dance forces imports after module-level code in
 # every GTK-facing module; silence E402 there so real violations stay visible.
