@@ -241,7 +241,7 @@ def load_library(db: CalibreDB | None = None) -> list[Book]:
     if db is None:
         db = get_cquarry_db()
 
-    custom_cols = load_custom_columns()
+    custom_cols = load_custom_columns(db)
     custom_values = {col.label: db.load_custom_column(col.name) for col in custom_cols}
 
     # Comments are deliberately NOT loaded here anymore (Phase 15's JIT

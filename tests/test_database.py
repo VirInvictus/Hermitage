@@ -302,6 +302,21 @@ class TestLoadLibrary(_FixtureBase):
         load_library()
         self.assertEqual(library_root(), self.root)
 
+    def test_explicit_handle_never_touches_the_singleton(self):
+        # Regression (1.8.4, caught on the live smoke run): load_library(db)
+        # handed its worker handle to the queries but called
+        # load_custom_columns() bare, creating the shared singleton on the
+        # worker thread; the UI thread then hit ProgrammingError on that
+        # connection in _build_vl_sidebar.
+        from cquarry.db import CalibreDB
+
+        with mock.patch(
+            "hermitage.database.get_cquarry_db",
+            side_effect=AssertionError("leaked to the singleton"),
+        ):
+            books = load_library(CalibreDB(str(self.db_path)))
+        self.assertEqual([b.id for b in books], [2, 1])
+
 
 class _StubCoverDB:
     """Counts get_cover_path calls; optionally raises ValueError."""
