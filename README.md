@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python 3.13+"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python 3.14+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" alt="License: GPL-3.0"></a>
 </p>
 
@@ -36,7 +36,7 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 
 ## Development & Setup
 
-Hermitage requires **Python 3.13+ (the Flatpak runtime ships 3.13; development runs 3.14)** and **GTK 4.22+**.
+Hermitage's own code runs on Python 3.13, but installs need **Python 3.14+**: its data layer is [cquarry](https://github.com/VirInvictus/cquarry), whose releases require 3.14 (pip enforces this before anything runs). GTK 4.22+ is also required.
 
 ```bash
 # Install dependencies
@@ -46,8 +46,11 @@ pip install PyGObject Pillow PyYAML cquarry
 python -m hermitage
 ```
 
-### Library Verification
-Includes a standalone CLI tool, `hermitage-verify`, to validate library integrity, cover file presence, and format resolution.
+A Flatpak manifest (`data/io.github.virinvictus.hermitage.yml`, GNOME 50 runtime) ships in the repo; it bundles its own pinned cquarry, and Flathub submission is planned.
+
+### Library verification
+
+`hermitage-verify` is a standalone CLI that validates every book's directory path and cover resolution against the catalog (books whose catalog row lists no format are reported; it does not stat format files on disk, and png-only covers count as missing by design). It also benchmarks path resolution time.
 
 ## Tag structure
 
@@ -61,11 +64,11 @@ Gaming.TTRPG.OSR.Megadungeon -> Gaming > TTRPG > OSR > Megadungeon
 NonFic.History.Military    -> NonFic > History > Military
 ```
 
-Top-level categories appear as cards. Mid-level branches appear as labeled subsections. Leaf genres appear as clickable accent-colored pills with book counts. Every level is clickable and filters the grid. If your Calibre tags are flat (no dots), the genre browser still works -- each tag gets its own pill under a single section.
+Top-level categories appear as cards. Mid-level branches appear as labeled subsections. Leaf genres appear as clickable accent-colored pills with book counts. Every level is clickable and filters the grid. If your Calibre tags are flat (no dots), the genre browser still works: each tag appears as its own card.
 
 ## Requirements
 
-**Python 3.13+** with:
+**Python 3.14+** (see the note under Development & Setup) with:
 
 ```
 pip install PyGObject Pillow PyYAML cquarry
@@ -127,7 +130,7 @@ tags:Fantasy and not tags:Romance
 vl:"Fantasy Wing"
 ```
 
-Bare text searches across title, authors, tags, and series. Multiple words are implicitly ANDed.
+Bare text searches across title, authors, tags, series, formats, languages, and custom columns. Multiple words are implicitly ANDed.
 
 ## Keyboard shortcuts
 
@@ -149,7 +152,7 @@ Bare text searches across title, authors, tags, and series. Multiple words are i
 hermitage-verify
 ```
 
-Standalone CLI tool that validates every book's directory path, cover file integrity, and format file presence. Reports issues grouped by category and benchmarks path resolution time.
+Standalone CLI that validates every book's directory path and cover resolution, reports issues grouped by category, and benchmarks path resolution time. (See the note under Development & Setup for what "validated" means per check.)
 
 ## Architecture
 
@@ -170,7 +173,7 @@ hermitage/
   export.py         # JSON/CSV library export via a file dialog
   preferences.py    # Plain Gtk.Window preferences (boxed-list, dropdown, switch)
   wizard.py         # First-run setup wizard with Calibre folder picker
-  database.py       # Read-only Calibre metadata.db parser, virtual library loader
+  database.py       # Thin cquarry wrapper: library load, VL/saved-search state, JIT comment reads
   thumbnailer.py    # Per-scale thumbnail disk cache + 512-entry in-memory texture LRU
   colors.py         # Median-cut color quantization, vibrancy sorting, three-tier cache
   verify.py         # CLI library integrity checker
@@ -179,9 +182,10 @@ hermitage/
 
 ## Stack
 
-- **Python 3.13+** with `cquarry` -- deferred annotations (`from __future__ import annotations`), `dataclass(slots=True)`
+- **Python 3.14+** for installs, per the cquarry floor (see Development & Setup); Hermitage's own code is 3.13-compatible
 - **GTK 4.22** (no libadwaita) -- plain GTK 4 with an owned stylesheet, Hyprland-native; overlay `Gtk.Revealer` sidebars, a width-clamping widget, and portal-based follow-system dark/light in place of the adwaita equivalents
-- **SQLite3** in `mode=ro` -- immutable read-only access to Calibre's database
+- **cquarry** -- the shared Calibre reading engine; the read-only guarantee is enforced there (every connection opens through cquarry's read-only URI), and Hermitage never writes anything it reads
+- **SQLite3** -- Calibre's `metadata.db`, read exclusively through cquarry
 - **Pillow** -- thumbnailing (LANCZOS), hero blur (GaussianBlur r30), color quantization (median-cut)
 - **PyYAML** -- config file at `~/.config/hermitage/config.yaml`
 - **Thread pools** -- 4 threads for thumbnails/colors, 2 threads for hero blur generation

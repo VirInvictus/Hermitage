@@ -3,7 +3,7 @@
 
 ## 1. Core Mandates
 - **Platform:** Pure Wayland, Hyprland-native (works under a GNOME fallback session too). Optimized for high-DPI, fractional-scale, and VRR displays.
-- **Language:** Python 3.13+ (floor: the GNOME 50 runtime ships 3.13; development runs 3.14). Deferred annotations throughout; concurrency is threads, not asyncio.
+- **Language:** Python (Hermitage's own code is 3.13-compatible; installs require 3.14 because the cquarry dependency does. The GNOME 50 Flatpak runtime ships 3.13, so every except-group stays parenthesized; development runs 3.14). Deferred annotations throughout; concurrency is threads, not asyncio.
 - **Privacy:** 100% Local-First. Zero telemetry, zero external network calls, zero user accounts.
 - **Performance & Scale:** Engineered to effortlessly scroll a 5,000+ item library with < 150ms initial load time, entirely bypassing network latency.
 - **Aesthetic Precision:** The UI must feel curated, not utilitarian. Focus on cover art dominance, dynamic color palettes, and cinematic detail views.
@@ -11,7 +11,7 @@
 ## 2. Technical Stack
 - **Frameworks:** GTK 4 only (PyGObject). **No libadwaita.** The GNOME identity layer (the adwaita stylesheet, the adaptive widgets, `Adw.StyleManager`) is dropped in favour of plain GTK 4 widgets and a stylesheet Hermitage owns outright. A small `hermitage/widgets.py` supplies the owned successors to the adwaita widgets that earned their keep: a width-clamping `Clamp`, a `WindowTitle`, a `ToastOverlay`, and a `status_page` composite.
 - **Graphics Engine:** GTK 4.22+ utilizing `Gtk.Snapshot` for custom blur effects and the `GtkSvg` native renderer for iconography. *(Superseded as built, noted 2026-09-05: the codex blur is Pillow `GaussianBlur` (`codex.py`) and icons are pre-rendered PNGs via `rsvg-convert` in the Flatpak manifest; the README describes the shipped reality.)*
-- **Database:** Shared `cquarry` (≥1.8) backend engine for canonical Calibre metadata.db read access and search evaluation. `hermitage/database.py` is a thin wrapper layer: `load_library()` consumes cquarry's list-typed `authors`/`tags`/`formats` arrays directly (never comma-split them), and the wrappers `load_saved_searches()`, `load_vl_ui_state()`, `get_annotations(book_id)` and `get_reading_progress(book_id)` expose saved searches, Calibre's sidebar layout state, e-reader highlights, and per-device progress fractions.
+- **Database:** Shared `cquarry` (≥1.18) backend engine for canonical Calibre metadata.db read access and search evaluation. `hermitage/database.py` is a thin wrapper layer: `load_library()` consumes cquarry's list-typed `authors`/`tags`/`formats` arrays directly (never comma-split them), and the wrappers `load_saved_searches()`, `load_vl_ui_state()`, `get_annotations(book_id)` and `get_reading_progress(book_id)` expose saved searches, Calibre's sidebar layout state, e-reader highlights, and per-device progress fractions.
 - **Concurrency:** Worker threads, as built: 4-thread `ThreadPoolExecutor`s in `thumbnailer.py`/`colors.py` for cover fetching and color extraction, and the Library Insights summary on its own background thread with a short-lived `CalibreDB` (v1.8.0).
 
 ## 2a. Design Language (Hyprland-native)
@@ -32,8 +32,9 @@ Hermitage dropped libadwaita to *fully belong on Hyprland* rather than merely to
     - **Actions:** A clear, primary "Read" action.
     - **Metadata:** Series and tags are parsed into visually distinct badges.
     - **Typography:** High-density, meticulously spaced Pango text for the synopsis.
-- **Configuration:** No settings menu. Configuration (path to `metadata.db`) is handled via a single local YAML or environment variable. The app is highly opinionated by design.
+- **Configuration:** A plain `Gtk.Window` preferences dialog (Ctrl+comma) reads and writes the same YAML as the first-run wizard; there is no GNOME settings-schema dependency (guard-tested). The app is highly opinionated by design.
 
-Important folders for testing:
-"/home/bdkl/docs/Calibre\ Library" - Where the metadata.db lives (as well as the library itself). DO NOT EDIT ANYTHING IN THIS FILE. YOU CAN USE THE METADATA.DB TO USE BUT MUST ONLY READ-ONLY ACCESS.
+## 4. Testing library
+
+The developer's live Calibre library sits at `~/docs/Calibre Library/` (its `metadata.db` is the database the app opens). It is strictly read-only: nothing under that directory is ever written, and every read goes through the read-only data layer.
 

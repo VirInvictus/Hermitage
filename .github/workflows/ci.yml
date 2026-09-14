@@ -42,7 +42,8 @@ jobs:
           /venv/bin/pip install ruff==0.15.20 .
 
       - name: ruff check
-        run: /venv/bin/ruff check hermitage/
+        # tests/ too: format already covered it; check now does as well.
+        run: /venv/bin/ruff check hermitage/ tests/
 
       - name: ruff format --check
         run: /venv/bin/ruff format --check hermitage/ tests/

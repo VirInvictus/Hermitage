@@ -7,10 +7,15 @@ name = "hermitage"
 # Single source of truth for the version is hermitage/__init__.py
 dynamic = ["version"]
 description = "A visually immersive, local-first media sanctuary for Calibre libraries."
-# Lower bound is the Python shipped in the GNOME 50 Flatpak runtime;
-# the codebase targets 3.14 idioms (slots dataclasses, deferred
-# annotations) but uses no 3.14-only syntax, so 3.13 runs cleanly.
-requires-python = ">= 3.13"
+# Hermitage's own code is 3.13-clean (the GNOME 50 Flatpak runtime ships
+# 3.13, so every except-group stays parenthesized), but the sole data
+# layer is cquarry, and every cquarry release since 1.9.0 declares
+# requires-python >=3.14 and uses PEP 758 bare except-groups (a
+# SyntaxError on 3.13). On a 3.13 interpreter the documented `pip install`
+# therefore resolves to nothing: pip 26 rejects cquarry on
+# Requires-Python before its syntax is even reached. The honest floor for
+# any install of this project is 3.14.
+requires-python = ">= 3.14"
 license = "GPL-3.0-or-later"
 authors = [
     { name = "Brandon LaRocque" },

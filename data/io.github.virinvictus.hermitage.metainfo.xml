@@ -81,8 +81,10 @@
     <color type="primary" scheme_preference="dark">#2c1424</color>
   </branding>
 
-  <!-- TODO: add <screenshots> section once the icon and a release build
-       are ready to capture against. -->
+  <!-- Flathub-mandatory: <screenshots> captures at exactly 1920x1080
+       (Codex, genre browser, series browser, Insights) pending a hands-on
+       capture session. The icon/release-build precondition was met at
+       v1.0.0; only the captures are outstanding. -->
 
   <releases>
     <release version="1.8.3" date="2026-09-12">
@@ -91,6 +93,11 @@
         layer (the identifiers presence fix, the strict date/numeric
         vocabulary, super-quotes, the custom-series index location), and
         the Flatpak cquarry pin moves to the 1.18.0 release commit.</p>
+        <p>Correction (annotated 2026-09-14, noted here rather than
+        rewriting the shipped note): the pinned cquarry 1.18.0 declares
+        Python 3.14 as its floor, which the GNOME 50 runtime's Python 3.13
+        cannot satisfy, so a Flatpak build pinned at that commit could not
+        complete. The resolution lands in the next release.</p>
       </description>
     </release>
     <release version="1.8.2" date="2026-09-09">
