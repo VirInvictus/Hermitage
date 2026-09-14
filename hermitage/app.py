@@ -18,7 +18,13 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from hermitage import theme, widgets
-from hermitage.codex import CodexView
+from hermitage.codex import CodexView, shutdown_blur as shutdown_codex
+from hermitage.colors import (
+    get_cached_colors,
+    request_colors,
+    shutdown as shutdown_colors,
+    warm_color_cache,
+)
 from hermitage.config import config_exists, get as cfg_get, set_value as cfg_set
 from hermitage.database import (
     Book,
@@ -31,13 +37,13 @@ from hermitage.database import (
     load_virtual_libraries,
     load_vl_ui_state,
 )
-from hermitage.colors import get_cached_colors, request_colors, warm_color_cache
 from hermitage.genres import GenreBrowser
 from hermitage.series import SeriesBrowser
 from hermitage.thumbnailer import (
     get_cached_texture,
     request_texture,
     set_default_scale,
+    shutdown as shutdown_thumbnails,
     warm_cache,
 )
 
@@ -694,6 +700,18 @@ class HermitageApp(Gtk.Application):
             authors=["Brandon LaRocque"],
         )
         about.present()
+
+    def do_shutdown(self):
+        """Cancel the pipeline pools on quit.
+
+        concurrent.futures joins its workers at interpreter exit, so
+        without this a quit drains the whole multi-thousand-job warm
+        queue (thumbnails, colors, hero blur) before the process dies.
+        """
+        shutdown_thumbnails()
+        shutdown_colors()
+        shutdown_codex()
+        Gtk.Application.do_shutdown(self)
 
     def do_activate(self):
         theme.init()

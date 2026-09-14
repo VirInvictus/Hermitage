@@ -237,3 +237,14 @@ def warm_cache(covers: list[Path], progress=None, scale: int | None = None):
 
     for cover in covers:
         _warm_executor.submit(_track, cover)
+
+
+def shutdown() -> None:
+    """Stop both pools, cancelling queued work (called on app shutdown).
+
+    concurrent.futures joins its workers at interpreter exit, so without
+    this a quit drains the whole multi-thousand-job warm_cache() queue
+    before the process dies.
+    """
+    _executor.shutdown(cancel_futures=True)
+    _warm_executor.shutdown(cancel_futures=True)

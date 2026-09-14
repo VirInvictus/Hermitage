@@ -147,3 +147,14 @@ def warm_color_cache(books):
         cover = b.cover_path
         if cover and cover.is_file():
             _warm_executor.submit(extract_colors_sync, b.id, cover)
+
+
+def shutdown() -> None:
+    """Stop both pools, cancelling queued work (called on app shutdown).
+
+    concurrent.futures joins its workers at interpreter exit, so without
+    this a quit drains the whole-library warm queue before the process
+    dies.
+    """
+    _executor.shutdown(cancel_futures=True)
+    _warm_executor.shutdown(cancel_futures=True)

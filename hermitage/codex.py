@@ -28,6 +28,11 @@ _BLUR_CACHE_DIR = Path.home() / ".cache" / "hermitage" / "blur"
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="hermitage-blur")
 
 
+def shutdown_blur() -> None:
+    """Stop the hero-blur pool, cancelling queued work (app shutdown)."""
+    _executor.shutdown(cancel_futures=True)
+
+
 def _generate_blurred_cover(cover: Path) -> Path | None:
     """Create a heavily blurred, darkened cover for the hero banner background."""
     import sys
