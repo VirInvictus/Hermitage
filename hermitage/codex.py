@@ -643,6 +643,7 @@ class CodexView(Gtk.Box):
         return row
 
     _enum_css_provider: Gtk.CssProvider | None = None
+    _enum_rules: list[str] = []
     _enum_classes_issued: set[str] = set()
 
     @classmethod
@@ -650,8 +651,12 @@ class CodexView(Gtk.Box):
         """Tint an enumeration pill with its Calibre ``enum_colors`` entry.
 
         Colors come from the column's ``display`` JSON (cquarry >=1.4). Each
-        distinct value gets one generated CSS class registered once on the
-        default screen; unknown values keep the theme's default pill look.
+        distinct value gets one generated CSS class on one shared provider,
+        which accumulates a rule per class: load_from_string REPLACES the
+        provider's whole sheet, so every reload carries all rules issued so
+        far (loading one rule at a time silently dropped every earlier
+        class once a column had two or more colored values). Unknown values
+        keep the theme's default pill look.
         """
         colors = (col.display or {}).get("enum_colors") or {}
         color = colors.get(value)
@@ -665,14 +670,15 @@ class CodexView(Gtk.Box):
             if provider is None:
                 provider = Gtk.CssProvider()
                 cls._enum_css_provider = provider
-            provider.load_from_string(
+                Gtk.StyleContext.add_provider_for_display(
+                    Gdk.Display.get_default(),
+                    provider,
+                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+                )
+            cls._enum_rules.append(
                 f".{css_class} {{ background-image: none; background-color: {color}; }}"
             )
-            Gtk.StyleContext.add_provider_for_display(
-                Gdk.Display.get_default(),
-                provider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-            )
+            provider.load_from_string("\n".join(cls._enum_rules))
             cls._enum_classes_issued.add(css_class)
         pill.add_css_class(css_class)
 
