@@ -748,10 +748,15 @@ class CodexView(Gtk.Box):
             if provider is None:
                 provider = Gtk.CssProvider()
                 cls._enum_css_provider = provider
+                # Same priority as the app stylesheet, added later: within a
+                # priority GTK consults the most recently added provider
+                # first, and the tint must out-rank the sheet's own
+                # `.codex-link-btn { background: none }` — at APPLICATION it
+                # could never win that cascade and the tint never rendered.
                 Gtk.StyleContext.add_provider_for_display(
                     Gdk.Display.get_default(),
                     provider,
-                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    Gtk.STYLE_PROVIDER_PRIORITY_USER + 1,
                 )
             cls._enum_rules.append(
                 f".{css_class} {{ background-image: none; background-color: {color}; }}"
