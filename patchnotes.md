@@ -9,8 +9,8 @@
   calibre-desktop-viewer"), newest activity first, and an Annotations
   section renders e-reader highlights (quoted), bookmarks (by title),
   and notes from Calibre's own sync surface. Both are per-book reads on
-  Codex activation — the get_comment_for cost class, two small indexed
-  queries — never at startup, and both sections stay hidden for books
+  Codex activation (the get_comment_for cost class: two small indexed
+  queries), never at startup, and both sections stay hidden for books
   with no rows. This closes the audit's highest documentation finding
   by building rather than rewording; the metainfo 1.3.0 note gains a
   dated correction instead of a rewrite.
