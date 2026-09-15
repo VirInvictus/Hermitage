@@ -1,0 +1,83 @@
+project.done — Hermitage
+
+Completion date: 2026-09-15 (THE FINAL BLITZ execution pass; window
+2026-09-14 to 2026-09-20).
+
+What shipped (commit range ab55870..6ac805b, 17 commits; releases
+v1.8.4 and v1.8.5):
+
+- HIGH: the _find_format_file infinite recursion fixed (requested
+  saved before the loop, dead double fallback deleted, 4 regression
+  tests; two RecursionError against the old code).
+- HIGH: the Flatpak build-truth lane, ungated half: the effective
+  3.14 install floor stated in pyproject/README/spec/CLAUDE (every
+  cquarry release requires 3.14; Hermitage's own code stays
+  3.13-compatible and a ruff target-version py313 pin keeps the
+  except-groups parenthesized); the falsified "pin COMPLIANT" records
+  corrected and the metainfo 1.8.3 entry annotated; the Flatpak
+  manifest source became the release git tag (v1.8.4 onward,
+  forward-only). The gated half (runtime decision) was answered:
+  Brandon chose an upstream cquarry 3.13-compat branch; the branch is
+  cquarry-lane work (see reopen conditions).
+- HIGH: the annotations/reading-progress claim closed by BUILDING
+  (Brandon ruled wire on 2026-09-14): v1.8.5 renders a per-device
+  Reading Progress section and an Annotations section in the Codex,
+  read per book on activation, hidden when empty; live-verified.
+- MED: the UI responsiveness cluster (worker-thread library load on
+  its own CalibreDB with broadened error handling and a destroy guard;
+  cover paths memoized per Book; five executors cancelled on quit via
+  do_shutdown; texture LRU byte-bounded at 512 MiB; the portal
+  scheme-handler alignment; the enum-pill provider accumulation AND
+  its priority fix AND the positional enum_colors shape fix that
+  stopped the Codex crashing on every enum-valued book).
+- MED: the small-correctness batch (fingerprinted color caches,
+  DecompressionBombError in all three image handlers, honest
+  get_all_comments, defensive cover_path, the uniform-cover palette
+  shrink found by the new tests).
+- MED: the docs-truth sweep (floors >=1.18, the settings-menu
+  contradiction, impersonal spec testing section, hermitage-verify
+  wording, cquarry credited for read-only enforcement, README Flatpak
+  mention, deduplicated sections, roadmap truth fixes).
+- MED/LOW: the test-layout repair (TestOrderedFormats was unreachable
+  in direct runs), the comment-truth sweep, the size-aware disk-cache
+  sweep, type-ahead title caching, .gitignore additions + template
+  prune, CI lint widened to tests/, the v1.0.0 release title renamed
+  on GitHub, the type-ahead/except-group polish.
+- Features (L4): slotted as Phase 17 roadmap boxes in recorded order
+  (slot-only ruling); two new-work boxes added (export on a worker;
+  the quoted custom-column match-breadth observation for the cquarry
+  lane).
+- Environment: ~173 MB of build residue reclaimed; the stale user-site
+  1.5.0 install replaced with an editable 1.8.5 (PATH console scripts
+  now run the repo tree); the gated .claude/ and result_images/ dirs
+  deleted.
+- Tests 67 -> 100, suite green, ruff clean (hermitage/ + tests/),
+  appstreamcli validates, hermitage-verify clean on the live library,
+  and a live GTK smoke run drove the session.
+
+Reopen conditions:
+
+1. Flathub onboarding + the AppStream screenshots block: captures at
+   exactly 1920x1080 (Codex, genre, series, Insights) from a hands-on
+   session (recorded as reopen per Brandon's 2026-09-14 ruling).
+2. The cquarry 3.13-compat branch (Brandon's chosen Flatpak fix):
+   cquarry-lane execution — branch from v1.18.0 (132aa2c),
+   requires-python >=3.13, parenthesize the seven bare except-groups
+   (db.py x3, helpers.py, search.py x2, write.py x2 — verify counts at
+   the branch point), tag it; then Hermitage bumps the manifest pin
+   (yml: the cquarry module commit) and a real flatpak-builder build
+   verifies end to end.
+3. Phase 17 feature boxes (content: search with its grammar-design
+   question first, the S-rider bundle, author browser,
+   export-current-view, Recently Added shelf, cover-size preference,
+   cache-management row, random-discover): slot-only per Brandon's
+   ruling; each needs its own green light.
+4. Export on a worker thread (Phase 17 new-work box).
+5. The quoted custom-column match breadth (e.g. #reading_status:"Read"
+   matched all 7,875 books live): a cquarry search-semantics question
+   surfaced 2026-09-14; consumer sync if it changes.
+6. Recorded, deliberately unfixed: png-only covers render the
+   placeholder (a cquarry cover-resolution question), wizard
+   do_activate ordering left as observed, per-bind provider churn left
+   as a micro-optimization, the spec opener de-slop (out of the ranked
+   lane's scope, recorded in the final audit).
