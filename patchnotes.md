@@ -1,5 +1,19 @@
 # Hermitage — Patch Notes
 
+## Flatpak-manifest patch (2026-09-15, cquarry blitz lane under grant #117)
+
+Not a release: manifest and records only. The cquarry pin moved to the
+new `compat-py313` branch (tag `v1.18.0+py313.1`), which builds and
+imports on the GNOME 50 runtime's Python 3.13.15 (verified with a real
+flatpak-builder run). The `python3-hatchling` module lost its
+contradictory `--no-deps` flag, so its vendored dependency wheels
+install and hatchling's metadata step works. The build's next stop is
+Hermitage's own `requires-python >=3.14` floor, a recorded policy
+decision for a Hermitage lane (see the roadmap's dated note). The
+quoted-custom-column question is ruled deliberate upstream semantics by
+the cquarry lane; no consumer sync owed (roadmap box ticked with the
+ruling).
+
 ## v1.8.5 (2026-09-14)
 
 ### The Codex reads: annotations and per-device progress wired

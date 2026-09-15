@@ -115,7 +115,7 @@ modules:
     buildsystem: simple
     build-commands:
       - >-
-        pip3 install --verbose --exists-action=i --no-index --no-deps
+        pip3 install --verbose --exists-action=i --no-index
         --no-build-isolation
         --find-links="file://${PWD}"
         --prefix=${FLATPAK_DEST} hatchling
@@ -150,8 +150,9 @@ modules:
     sources:
       - type: git
         url: https://github.com/VirInvictus/cquarry.git
-        commit: 132aa2c36c731041b1909bb83016cfc4a1bdde0f
-        # cquarry 1.18.0
+        commit: a1cebf863b8b753d1bf71e7c2c993f80f8173dbb
+        # cquarry v1.18.0+py313.1 (compat-py313; the 3.13 floor for this
+        # runtime's Python, recorded decision #81; tag verbatim-verified)
 
   # Hermitage itself + its desktop / icon / metainfo data files.
   - name: hermitage

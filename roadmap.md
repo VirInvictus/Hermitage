@@ -361,10 +361,51 @@ alternative shipped deliberately). None of these need a new dependency.
       the executed batch): `get_all_comments()` + the full dump run in
       the save callback on the main thread; move to the Insights/load
       worker discipline with a progress toast.
-- [ ] **Quoted custom-column match breadth** (observed on the 1.8.4
+- [x] **Quoted custom-column match breadth** (observed on the 1.8.4
       smoke run): `#reading_status:"Read"` matched all 7,875 books in
       the live library, while `title:"Gunslinger"` filtered to 1 —
       quoted values on enum columns look like they substring-match
       ("Read" ⊂ "To Read"/"Reading"). Search semantics live in cquarry:
       one for the cquarry lane to confirm and rule on, then a Hermitage
       consumer sync if it changes.
+      *(RULED 2026-09-15 by the cquarry blitz lane: deliberate upstream
+      semantics, no bug, no consumer sync owed. Quotes in Calibre's
+      grammar shield the token from the lexer; they never imply exact
+      matching. Reproduced read-only against the live library: every
+      one of the 7,874 books carries #reading_status, the values are
+      To Read (7,723) / Read (150) / Reading (1), and "read" is a
+      substring of all three, so the contains match is literally
+      correct. `#reading_status:=Read` gives 150. Pinned as
+      TestQuotedCustomColumnContains in cquarry's suite. If a UI wants
+      exact-on-quote, that is a Hermitage search-box decision for a
+      future box, not an engine change.)*
+
+### The cquarry compat pin (2026-09-15, the cquarry blitz lane under cross-repo grant #117)
+
+The Flatpak manifest's cquarry pin moved from 132aa2c (1.18.0, cannot
+build on this runtime's Python 3.13) to cquarry's `compat-py313`
+branch, tag `v1.18.0+py313.1` (commit a1cebf8): requires-python >=3.13,
+the seven PEP 758 bare except-groups parenthesized, distinct version
+series, PyPI publish defused on that branch. Verified live with
+flatpak-builder against the GNOME 50 runtime: the cquarry module now
+builds and imports on Python 3.13.15 (cquarry 1.18.0+py313.1 in the
+sandbox's site-packages).
+
+Two Hermitage-side remainders surfaced by the same build run (recorded,
+not executed -- both belong to a Hermitage lane):
+
+1. The `python3-hatchling` module installed with `--no-deps`, so none
+   of the vendored wheel set (pathspec, packaging, pluggy, tomlkit,
+   trove-classifiers) actually landed and hatchling's metadata step
+   died on the missing pathspec. FIXED in this commit by dropping the
+   flag; the vendored wheels + `--no-index --find-links` then resolve
+   as designed.
+2. With cquarry serving, the build reaches Hermitage itself and stops:
+   `Package 'hermitage' requires a different Python: 3.13.15 not in
+   '>=3.14'`. Hermitage's own code compiles clean on 3.13 (verified
+   with python3.13 -m compileall), but flipping the floor is a policy
+   decision, not a fix: the recorded reason for 3.14 was cquarry@PyPI,
+   and the dev dependency still tracks @main (3.14-only). A Hermitage
+   lane should decide the pip floor, bump the sync set, and cut the
+   forward-only tag the manifest's hermitage module pins; until then
+   the Flatpak build stops at Hermitage's own metadata, not cquarry's.
