@@ -484,6 +484,12 @@ class TestAnnotationsAndProgress(_FixtureBase):
         self.assertAlmostEqual(database.get_reading_progress(1), 0.90)
         self.assertIsNone(database.get_reading_progress(2))
 
+    def test_get_reading_progress_by_device(self):
+        # Newest device activity first; the latest epoch per device wins.
+        pairs = database.get_reading_progress_by_device(1)
+        self.assertEqual(pairs, [("phone", 0.90), ("kobo", 0.42)])
+        self.assertEqual(database.get_reading_progress_by_device(2), [])
+
 
 class TestInsightsWorkerFallback(_FixtureBase):
     """Insights' worker thread must survive the shared UI-thread singleton.

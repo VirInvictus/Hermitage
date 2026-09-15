@@ -381,3 +381,23 @@ def get_reading_progress(book_id: int) -> float | None:
     latest = max(rows, key=lambda r: r.get("epoch") or 0)
     frac = latest.get("pos_frac")
     return float(frac) if frac is not None else None
+
+
+def get_reading_progress_by_device(book_id: int) -> list[tuple[str, float]]:
+    """Per-device most-recent reading progress, newest activity first.
+
+    Each ``last_read_positions`` row carries device + epoch + pos_frac;
+    the latest epoch per device wins. Empty when the table is absent.
+    """
+    rows = get_cquarry_db().get_last_read_positions(book_id)
+    latest: dict[str, tuple[int, float]] = {}
+    for r in rows:
+        frac = r.get("pos_frac")
+        if frac is None:
+            continue
+        device = r.get("device") or "device"
+        epoch = r.get("epoch") or 0
+        if device not in latest or epoch >= latest[device][0]:
+            latest[device] = (int(epoch), float(frac))
+    ordered = sorted(latest.items(), key=lambda kv: kv[1][0], reverse=True)
+    return [(device, frac) for device, (_epoch, frac) in ordered]

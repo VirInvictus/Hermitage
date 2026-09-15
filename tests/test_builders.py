@@ -13,10 +13,12 @@ from unittest import mock
 from hermitage.codex import (
     _IDENTIFIER_LINKS,
     CodexView,
+    _annotation_line,
     _clean_html,
     _enum_color_hex,
     _find_format_file,
     _ordered_formats,
+    _progress_line,
 )
 from hermitage.database import Book, CustomColumn
 from hermitage.genres import _build_tag_tree, _rolled_counts
@@ -243,6 +245,33 @@ class _FormatMapDB:
 
     def get_formats(self, book_id):
         return self._fmt_map
+
+
+class TestReadingLines(unittest.TestCase):
+    """Pure display lines for the Codex reading-progress/annotations
+    sections (1.8.5: the wiring that makes the long-standing claim true)."""
+
+    def test_progress_line(self):
+        self.assertEqual(_progress_line("kobo", 0.42), "42%  \u00b7  kobo")
+        self.assertEqual(_progress_line("phone", 0.9), "90%  \u00b7  phone")
+        self.assertEqual(_progress_line("x", 1.0), "100%  \u00b7  x")
+
+    def test_annotation_line_highlight(self):
+        line = _annotation_line(
+            {"annot_type": "highlight", "annot_data": {"text": "wise"}}
+        )
+        self.assertEqual(line, "Highlight: \u201cwise\u201d")
+
+    def test_annotation_line_bookmark_title(self):
+        line = _annotation_line(
+            {"annot_type": "bookmark", "annot_data": {"title": "Ch. 5"}}
+        )
+        self.assertEqual(line, "Bookmark: Ch. 5")
+
+    def test_annotation_line_fallbacks(self):
+        # No text/title: the bare kind; no kind either: nothing to show.
+        self.assertEqual(_annotation_line({"annot_type": "note"}), "Note")
+        self.assertIsNone(_annotation_line({"annot_data": {"text": "  "}}))
 
 
 class TestFindFormatFile(unittest.TestCase):

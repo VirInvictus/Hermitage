@@ -193,6 +193,38 @@ def _enum_color_hex(entry) -> str | None:
     return _ENUM_COLOR_NAMES.get(entry.strip().lower())
 
 
+def _progress_line(device: str, frac: float) -> str:
+    """One per-device progress row -> '87%  ·  device' (pure)."""
+    return f"{int(round(frac * 100))}%  ·  {device}"
+
+
+def _annotation_line(note: dict) -> str | None:
+    """One annotations-table row -> a display line (pure).
+
+    annot_data is Calibre's decoded JSON payload: highlights and notes
+    carry ``text`` (rendered quoted), bookmarks carry ``title``; with
+    neither, the row renders as its bare kind, or None when it has
+    nothing at all to show.
+    """
+    raw_kind = note.get("annot_type")
+    kind = str(raw_kind).capitalize() if raw_kind else ""
+    data = note.get("annot_data")
+    text = None
+    title = None
+    if isinstance(data, dict):
+        text = data.get("text")
+        title = data.get("title")
+    elif isinstance(data, str):
+        text = data
+    if isinstance(text, str) and text.strip():
+        body = f"“{text.strip()}”"
+    elif isinstance(title, str) and title.strip():
+        body = title.strip()
+    else:
+        return kind or None
+    return f"{kind}: {body}" if kind else body
+
+
 def _ordered_formats(book: Book) -> list[str]:
     """The book's formats, best-readable first (the priority order), any
     unranked formats after. Pure; drives the multi-format selector."""
@@ -452,6 +484,26 @@ class CodexView(Gtk.Box):
         self._synopsis.add_css_class("body")
         body_inner.append(self._synopsis)
 
+        # Reading progress (per device) and annotations: hidden unless the
+        # book actually has rows (populated per activation in show_book).
+        self._progress_header = Gtk.Label(label="Reading progress", xalign=0)
+        self._progress_header.add_css_class("codex-section-title")
+        self._progress_header.set_visible(False)
+        body_inner.append(self._progress_header)
+
+        self._progress_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self._progress_box.set_visible(False)
+        body_inner.append(self._progress_box)
+
+        self._annots_header = Gtk.Label(label="Annotations", xalign=0)
+        self._annots_header.add_css_class("codex-section-title")
+        self._annots_header.set_visible(False)
+        body_inner.append(self._annots_header)
+
+        self._annots_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self._annots_box.set_visible(False)
+        body_inner.append(self._annots_box)
+
         # Formats
         self._formats_label = Gtk.Label(xalign=0)
         self._formats_label.add_css_class("codex-meta")
@@ -588,6 +640,44 @@ class CodexView(Gtk.Box):
             self._synopsis_header.set_visible(False)
             self._synopsis.set_visible(False)
 
+        # Reading progress + annotations: two small indexed reads on
+        # activation (the get_comment_for cost class), never at startup.
+        from hermitage.database import (
+            get_annotations,
+            get_reading_progress_by_device,
+        )
+
+        self._clear_box(self._progress_box)
+        self._clear_box(self._annots_box)
+        devices = get_reading_progress_by_device(book.id)
+        if devices:
+            self._progress_header.set_visible(True)
+            self._progress_box.set_visible(True)
+            for device, frac in devices:
+                lbl = Gtk.Label(label=_progress_line(device, frac), xalign=0)
+                lbl.add_css_class("codex-meta")
+                self._progress_box.append(lbl)
+        else:
+            self._progress_header.set_visible(False)
+            self._progress_box.set_visible(False)
+        lines = [
+            line
+            for line in (_annotation_line(n) for n in get_annotations(book.id))
+            if line
+        ]
+        if lines:
+            self._annots_header.set_visible(True)
+            self._annots_box.set_visible(True)
+            for text in lines:
+                lbl = Gtk.Label(label=text, xalign=0)
+                lbl.set_wrap(True)
+                lbl.set_wrap_mode(Pango.WrapMode.WORD)
+                lbl.add_css_class("codex-annotation")
+                self._annots_box.append(lbl)
+        else:
+            self._annots_header.set_visible(False)
+            self._annots_box.set_visible(False)
+
         # Formats & page count (pages come from Calibre's native
         # books_pages_link via cquarry >=1.3)
         meta_bits: list[str] = []
@@ -636,6 +726,14 @@ class CodexView(Gtk.Box):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _clear_box(box: Gtk.Box):
+        child = box.get_first_child()
+        while child is not None:
+            nxt = child.get_next_sibling()
+            box.remove(child)
+            child = nxt
 
     @staticmethod
     def _clear_flow_box(flow: Gtk.FlowBox):

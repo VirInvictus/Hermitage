@@ -1,5 +1,21 @@
 # Hermitage — Patch Notes
 
+## v1.8.5 (2026-09-14)
+
+### The Codex reads: annotations and per-device progress wired
+
+- **The detail pane now renders what it always claimed.** A Reading
+  Progress section lists each device's latest position ("1%  ·
+  calibre-desktop-viewer"), newest activity first, and an Annotations
+  section renders e-reader highlights (quoted), bookmarks (by title),
+  and notes from Calibre's own sync surface. Both are per-book reads on
+  Codex activation — the get_comment_for cost class, two small indexed
+  queries — never at startup, and both sections stay hidden for books
+  with no rows. This closes the audit's highest documentation finding
+  by building rather than rewording; the metainfo 1.3.0 note gains a
+  dated correction instead of a rewrite.
+- Tests 95 → 100.
+
 ## v1.8.4 (2026-09-14)
 
 ### The final blitz: crash fixes, the worker load, and build truth

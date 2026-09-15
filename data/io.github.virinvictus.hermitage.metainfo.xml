@@ -87,6 +87,14 @@
        v1.0.0; only the captures are outstanding. -->
 
   <releases>
+    <release version="1.8.5" date="2026-09-14">
+      <description>
+        <p>The Codex gains the reading surfaces it always claimed: a
+        Reading Progress section listing each device's latest position
+        and an Annotations section rendering e-reader highlights,
+        bookmarks, and notes, both read per book on activation.</p>
+      </description>
+    </release>
     <release version="1.8.4" date="2026-09-14">
       <description>
         <p>Stability and responsiveness: the detail view no longer crashes
@@ -185,6 +193,9 @@
       <description>
         <p>Saved searches, annotation highlights, and per-device reading
         progress on the book detail page.</p>
+        <p>Correction (annotated 2026-09-14, shipped notes are never
+        rewritten): this claim was premature; the annotation and progress
+        surfaces actually render in the Codex as of v1.8.5.</p>
       </description>
     </release>
     <release version="1.1.0" date="2026-08-23"/>
