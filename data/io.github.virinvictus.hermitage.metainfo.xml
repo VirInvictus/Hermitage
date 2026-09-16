@@ -81,10 +81,29 @@
     <color type="primary" scheme_preference="dark">#2c1424</color>
   </branding>
 
-  <!-- Flathub-mandatory: <screenshots> captures at exactly 1920x1080
-       (Codex, genre browser, series browser, Insights) pending a hands-on
-       capture session. The icon/release-build precondition was met at
-       v1.0.0; only the captures are outstanding. -->
+  <!-- Flathub-mandatory: <screenshots> captures at exactly 1920x1080.
+       Captured 2026-09-16 in the post-blitz verification session
+       (reopen condition #1, decision #85): the Codex per-book page, the
+       genre browser, the series browser, and Library Insights. -->
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>The Codex: per-book details with tags, identifiers and synopsis</caption>
+      <image>https://raw.githubusercontent.com/VirInvictus/Hermitage/main/docs/screenshots/codex.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Browse the library's genre taxonomy</caption>
+      <image>https://raw.githubusercontent.com/VirInvictus/Hermitage/main/docs/screenshots/genre.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Every series with its index range and gaps</caption>
+      <image>https://raw.githubusercontent.com/VirInvictus/Hermitage/main/docs/screenshots/series.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Library Insights: the library at a glance</caption>
+      <image>https://raw.githubusercontent.com/VirInvictus/Hermitage/main/docs/screenshots/insights.png</image>
+    </screenshot>
+  </screenshots>
 
   <releases>
     <release version="1.8.5" date="2026-09-14">
