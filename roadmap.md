@@ -313,8 +313,8 @@ template.
 - [x] MED — Portal scheme handler applies scheme==1 while _query_dark returns scheme!=2 (a live flip to "no preference" goes light; the same value at startup stays dark; the comment records that ==1 "silently broke"); enum-pill provider load_from_string replaces its own CSS per color class (2+ colored values → earlier pills lose their tint). *(v1.8.4: both paths map through _scheme_is_dark; the enum provider also accumulates its rules and sits at the app sheet's priority, and enum_colors now resolves Calibre's real positional shape — the dict-shaped code had crashed the Codex on every enum-valued book since cquarry began decoding display JSON. Found and fixed on the live smoke run.)*
 - [x] MED — Small correctness: color cache keyed by book_id alone (cover changes keep the stale glow color); DecompressionBombError escapes all three Pillow handlers silently; get_all_comments swallows everything so export can silently write comment:null library-wide (contradicts the "synopses never export as absent" contract); book.cover_path ValueError mid-bind leaves recycled cells with mismatched title/cover. *(v1.8.4: color caches fingerprint-keyed; DecompressionBombError caught in all three image handlers; get_all_comments raises instead of silently exporting comment:null; a vanished cover row resolves to None; plus the uniform-cover palette shrink the new tests flushed out.)*
 - [x] MED — Docs truth: CLAUDE.md:29 + spec.md:14 cquarry floor stale (≥1.8 → ≥1.18); README:152 overstates hermitage-verify (catalog presence, not disk; png-only covers count missing by design); spec.md:35 "No settings menu" contradicts the shipped Preferences window; spec.md:37-38 personal path + garbled all-caps warning; README:173 calls database.py a parser (thin cquarry wrapper since v1.2.0); README:184 attributes mode=ro to Hermitage (cquarry is the enforcement layer — credit it); README never mentions the shipped Flatpak. *(v1.8.4.)*
-- [ ] MED — Flathub gate pair: add the AppStream <screenshots> block (the TODO's precondition met since v1.0.0; capture Codex/genre/series/Insights at 1920x1080) and switch the manifest source from type:dir to type:git + tag (v1.8.3 exists). Both ride Brandon's Flathub onboarding. *(v1.8.4: the manifest source became type:git + the release tag, executable now; the 1920x1080 screenshots remain calendar-gated on a hands-on session.)*
-- [ ] MED — metainfo 1.3.0 release note carries the never-built annotations claim (Flathub-facing; annotate the correction, never silently rewrite shipped notes); the user-site install is a REAL non-editable 1.5.0 copy, so the PATH console scripts (hermitage, hermitage-verify) run four-releases-old code — force-reinstall editable. *(the 1.3.0 annotation landed in v1.8.5 with the wire ruling; the user-site 1.5.0 reinstall remains open as Brandon's environment item.)*
+- [x] MED — Flathub gate pair: add the AppStream <screenshots> block (the TODO's precondition met since v1.0.0; capture Codex/genre/series/Insights at 1920x1080) and switch the manifest source from type:dir to type:git + tag (v1.8.3 exists). Both ride Brandon's Flathub onboarding. *(v1.8.4: the manifest source became type:git + the release tag, executable now; the 1920x1080 screenshots remain calendar-gated on a hands-on session. Screenshots landed 2026-09-16 (commit 9b9c0a1, four captures in the metainfo); ticked 2026-09-29 during the parity scoping. The Flathub submission itself still rides Brandon's onboarding.)*
+- [x] MED — metainfo 1.3.0 release note carries the never-built annotations claim (Flathub-facing; annotate the correction, never silently rewrite shipped notes); the user-site install is a REAL non-editable 1.5.0 copy, so the PATH console scripts (hermitage, hermitage-verify) run four-releases-old code — force-reinstall editable. *(the 1.3.0 annotation landed in v1.8.5 with the wire ruling; the user-site reinstall also completed in the blitz per project.done ("the stale user-site 1.5.0 install replaced with an editable 1.8.5"); ticked 2026-09-29 during the parity scoping.)*
 - [x] LOW — Cache/resource tail: disk caches grow forever (mtime-keyed superseded entries; size-aware startup sweep); png-only covers show the placeholder (documented gap, inconsistent with Insights' counting); wizard do_activate ordering fragility; per-bind provider churn; refresh_library has zero call sites (wire as the Reload Library rider); LOAD_TRUNCATED_IMAGES re-set per call on a worker; type-ahead rebuilds the title list per keystroke; redundant (GLib.Error, Exception) groups. *(v1.8.4: size-aware disk sweep, fingerprinted color cache, bomb guards, type-ahead title cache, redundant except groups simplified; png-only covers stay a recorded deliberate gap surfaced to the cquarry lane; wizard do_activate ordering left as observed rather than blind-fixed.)*
 - [x] LOW — Comment truth: insights.py "no identifiers predicate upstream" stale since 1.8.2; get_comment_for "short-lived CalibreDB" docstring is false (app-lifetime singleton); the spinner comment describes motion that freezes; get_cquarry_db lacks its two invariant comments (read-only provenance; main-thread-only connection, workers open their own); series.py "(gaps)" vs code's "(incomplete)"; custom-field comment vs annotation mismatch; \u2014 escapes vs literals; avg_rating_x10 naming; year-101 sentinel comment duplication; LRU comment to be rewritten in bytes. REFUTED lead: thumbnailer's "(thread-safe)" docstring is CORRECT per the GTK 4.22 GIR (gdk_texture_new_from_filename is threadsafe) — do not change it. *(v1.8.4; the REFUTED texture-threadsafe lead respected and untouched.)*
 - [x] LOW — Housekeeping: .gitignore lacks .claude/ (global-ignore-masked); delete the empty result_images/ skeleton and the retired-client .claude/ dir; ~174 MB of all-ignored build residue (.flatpak-builder 154M, build-flatpak, build-dir, build/, egg-info with its stale 1.5.0 PKG-INFO) reclaimable opportunistically; the stock .gitignore template carries dead Django/Flask sections; CI lint never covers tests/ (one-line widen); v1.0.0 release title drops its milestone suffix. *(v1.8.4: .gitignore additions and template prune, CI lint widened to tests/, the v1.0.0 release title renamed on GitHub; the .claude/ and result_images/ dir deletions and the ~174 MB residue remain gated removals.)*
@@ -328,6 +328,10 @@ Slotted, not scheduled: each becomes real work only on its own green
 light. Declined and recorded: multi-library switching without restart,
 OPDS export (Carrel serves it), the grid-top recency shelf (the sidebar
 alternative shipped deliberately). None of these need a new dependency.
+*(2026-09-29, the ecosystem parity program: four of these slots become
+committed as the browse-parity set (content: search, the S-rider
+bundle, the author browser, export-respects-view); the rest stay
+green-light slots. See the parity section at the bottom.)*
 
 - [ ] **`content:` full-text search** — cquarry's `search_book_text()`
       ships in the pinned 1.18.0 and is called nowhere; 7,400+ books
@@ -409,3 +413,43 @@ not executed -- both belong to a Hermitage lane):
    lane should decide the pip floor, bump the sync set, and cut the
    forward-only tag the manifest's hermitage module pins; until then
    the Flatpak build stops at Hermitage's own metadata, not cquarry's.
+
+## The browse domain in the ecosystem parity program (opened 2026-09-29)
+
+Brandon opened the ecosystem Calibre-parity program on 2026-09-29 (cquarry roadmap.md,
+"The parity program"): every Calibre capability covered natively or by orchestration of
+Calibre's own headless tools. Hermitage's lane is browse/view parity with the Calibre
+GUI, capability not UI clone. Everything Hermitage ships in-domain is already
+engine-backed through cquarry (the same query returns the same set as Calibre by
+construction), so the lane's open work is small and named:
+
+- [ ] **The pip-floor decision** (the compat-pin section above, item 2) is the
+      program's first Hermitage item: the Flatpak build stops at Hermitage's own
+      `requires-python >=3.14` while cquarry's half is verified end to end. Deciding
+      it (and cutting the forward-only tag) unblocks the reproducible-install story
+      for the whole program.
+- [ ] **`content:` full-text search UI** (Phase 17 slot, now committed): the cquarry
+      read ships in the pinned 1.18.0 and is called nowhere; the one Calibre-GUI
+      parity feature sitting unused.
+- [ ] **The S-rider bundle** (Phase 17 slot, now committed): Reload Library
+      (`refresh_library()` is written and uncallable; a library edited by Calibre is
+      invisible until restart, the one coherence gap in a no-Calibre-needed story),
+      clickable Insights audit rows, avg-rating genre pills, enum label_index
+      ordering.
+- [ ] **Author browser** (Phase 17 slot, now committed): the primary fiction browse
+      dimension; Calibre's GUI has it, Hermitage does not.
+- [ ] **Export respects the current view** (Phase 17 slot, now committed): ~20 lines
+      reusing export_books verbatim.
+- [ ] **cquarry adoption debts** (from cquarry's re-homed ledger, 2026-09-29): adopt
+      `get_annotations_decoded()` in `codex.py:_annotation_line` (codex.py:201-226;
+      the cquarry side shipped 1.23.0); adopt the ordered-VL-names and unpiped-author
+      helpers when cquarry Phase 16 promotes them; the optional
+      `strip_html(keep_paragraphs=True)` growth rides cquarry Phase 16 only if Codex
+      wants one HTML definition in the family (the local `_clean_html` stays under
+      the v1.7.0 render-parity waiver until then).
+- The remaining Phase 17 slots (Recently Added shelf row, cover-size preference,
+  cache-management row, random-discover, export-on-worker-thread) stay green-light
+  slots; the program does not commit them.
+- Declined under the program, unchanged: multi-library switching, OPDS export (Carrel
+  serves it), reading-status writes (the read-mostly waiver), the png-only-cover
+  placeholder (recorded deliberate gap surfaced to the cquarry lane).
