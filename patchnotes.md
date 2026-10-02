@@ -1,3 +1,4 @@
+# Hermitage — Patch Notes
 ## v1.8.6 (2026-10-02)
 
 ### The cquarry 1.25 consumer wave: the four adoption debts retire
@@ -47,8 +48,6 @@ version that never publishes) -- so a Flatpak build carries all four
 adopted helpers again. Hermitage's own manifest tag pin catches up to
 this release (v1.8.4 -> v1.8.6; the 1.8.5 release had skipped it). The
 cquarry floor statement in CLAUDE.md moves 1.18 -> 1.25.
-
-# Hermitage — Patch Notes
 
 ## Flatpak-manifest patch (2026-09-15, cquarry blitz lane under grant #117)
 
