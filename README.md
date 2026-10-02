@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python 3.14+"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python 3.13+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" alt="License: GPL-3.0"></a>
 </p>
 
@@ -36,7 +36,7 @@ Calibre is the gold standard for ebook management, but its UI is built for libra
 
 ## Development & Setup
 
-Hermitage's own code runs on Python 3.13, but installs need **Python 3.14+**: its data layer is [cquarry](https://github.com/VirInvictus/cquarry), whose releases require 3.14 (pip enforces this before anything runs). GTK 4.22+ is also required.
+**Python 3.13+** (3.14 recommended for dev installs: the [cquarry](https://github.com/VirInvictus/cquarry) data layer resolves from PyPI there, while the Flatpak pins cquarry's compat-py313 branch for the GNOME 50 runtime). GTK 4.22+ is also required.
 
 ```bash
 # Install dependencies
@@ -68,7 +68,7 @@ Top-level categories appear as cards. Mid-level branches appear as labeled subse
 
 ## Requirements
 
-**Python 3.14+** (see the note under Development & Setup) with:
+**Python 3.13+** (see the note under Development & Setup) with:
 
 ```
 pip install PyGObject Pillow PyYAML cquarry
@@ -182,7 +182,7 @@ hermitage/
 
 ## Stack
 
-- **Python 3.14+** for installs, per the cquarry floor (see Development & Setup); Hermitage's own code is 3.13-compatible
+- **Python 3.13+** (the pip-floor decision, 2026-10-02; see Development & Setup); Hermitage's own code is 3.13-clean
 - **GTK 4.22** (no libadwaita) -- plain GTK 4 with an owned stylesheet, Hyprland-native; overlay `Gtk.Revealer` sidebars, a width-clamping widget, and portal-based follow-system dark/light in place of the adwaita equivalents
 - **cquarry** -- the shared Calibre reading engine; the read-only guarantee is enforced there (every connection opens through cquarry's read-only URI), and Hermitage never writes anything it reads
 - **SQLite3** -- Calibre's `metadata.db`, read exclusively through cquarry

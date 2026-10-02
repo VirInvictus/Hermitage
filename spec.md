@@ -3,7 +3,7 @@
 
 ## 1. Core Mandates
 - **Platform:** Pure Wayland, Hyprland-native (works under a GNOME fallback session too). Optimized for high-DPI, fractional-scale, and VRR displays.
-- **Language:** Python (Hermitage's own code is 3.13-compatible; installs require 3.14 because the cquarry dependency does. The GNOME 50 Flatpak runtime ships 3.13, so every except-group stays parenthesized; development runs 3.14). Deferred annotations throughout; concurrency is threads, not asyncio.
+- **Language:** Python 3.13+ (the pip-floor decision, 2026-10-02: the cquarry dependency resolves from PyPI on 3.14 dev installs and from the compat-py313 branch in the Flatpak). Every except-group stays parenthesized; deferred annotations throughout; concurrency is threads, not asyncio.
 - **Privacy:** 100% Local-First. Zero telemetry, zero external network calls, zero user accounts.
 - **Performance & Scale:** Engineered to effortlessly scroll a 5,000+ item library with < 150ms initial load time, entirely bypassing network latency.
 - **Aesthetic Precision:** The UI must feel curated, not utilitarian. Focus on cover art dominance, dynamic color palettes, and cinematic detail views.

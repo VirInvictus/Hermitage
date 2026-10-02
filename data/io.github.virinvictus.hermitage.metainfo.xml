@@ -107,6 +107,16 @@
   </screenshots>
 
   <releases>
+    <release version="1.8.6" date="2026-10-02">
+      <description>
+        <p>The cquarry 1.25 consumer wave: annotations render through
+        cquarry's decoded view, the virtual-library sidebar orders by
+        Calibre's own stored tab positions, and the Codex's
+        "find this book on" buttons come from cquarry's canonical
+        identifier table. No visible change; the private copies of all
+        four helpers are retired.</p>
+      </description>
+    </release>
     <release version="1.8.5" date="2026-09-14">
       <description>
         <p>The Codex gains the reading surfaces it always claimed: a

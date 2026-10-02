@@ -8,14 +8,12 @@ name = "hermitage"
 dynamic = ["version"]
 description = "A visually immersive, local-first media sanctuary for Calibre libraries."
 # Hermitage's own code is 3.13-clean (the GNOME 50 Flatpak runtime ships
-# 3.13, so every except-group stays parenthesized), but the sole data
-# layer is cquarry, and every cquarry release since 1.9.0 declares
-# requires-python >=3.14 and uses PEP 758 bare except-groups (a
-# SyntaxError on 3.13). On a 3.13 interpreter the documented `pip install`
-# therefore resolves to nothing: pip 26 rejects cquarry on
-# Requires-Python before its syntax is even reached. The honest floor for
-# any install of this project is 3.14.
-requires-python = ">= 3.14"
+# 3.13, so every except-group stays parenthesized). The floor matches it
+# since 1.8.6 (the recorded pip-floor decision, 2026-10-02): dev installs
+# on 3.14 resolve cquarry from PyPI, and the Flatpak pins cquarry's
+# compat-py313 branch (a +local version that never publishes), which has
+# carried the 1.25 APIs since v1.25.0+py313.1.
+requires-python = ">= 3.13"
 license = "GPL-3.0-or-later"
 authors = [
     { name = "Brandon LaRocque" },

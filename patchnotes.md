@@ -1,3 +1,53 @@
+## v1.8.6 (2026-10-02)
+
+### The cquarry 1.25 consumer wave: the four adoption debts retire
+
+All four adoptions from the 2026-09-29 roadmap box land against
+cquarry 1.25.0, and no visible pixel changes: every retired helper was
+promoted FROM this tree or verified render-identical before the swap.
+
+- **Annotations render through cquarry's decoded view.**
+  `database.get_annotations` is now `get_annotations_decoded`
+  (cquarry 1.23), and `_annotation_line` takes the decoded row: kind,
+  text, and title arrive already lifted from the JSON payload. The
+  retired code's raw dict-or-string `annot_data` handling dies with it;
+  its string branch was defense against a payload shape upstream's
+  json.dumps writer cannot produce (zero non-JSON rows in the real
+  library, verified before the swap). Annotation `notes` stay
+  unrendered, as shipped; the pinned builder tests moved to the decoded
+  shape with identical expectations.
+- **The virtual-library sidebar orders by Calibre's own tab order.**
+  `_build_vl_sidebar`'s private sort-key closure retires onto
+  `CalibreDB.ordered_virtual_library_names` (cquarry 1.25, promoted
+  from Carrel's copy of the same rule). The sidebar's name set stays
+  the worker snapshot's (`win._vl_defs`), since `_on_vl_activated`
+  expands through those expressions.
+- **Author pipes flatten through the promoted helper.**
+  `load_library`'s `.replace("|", ",")` display restore is now
+  `cquarry.helpers.unpipe_author`, render-identical; the strip stays
+  local, and the pipe rule itself belongs to cquarry's suite now.
+- **Identifier buttons come from the canonical table.** The Codex's
+  private `_IDENTIFIER_LINKS` -- the table cquarry's helper was
+  promoted FROM -- retires onto `helpers.identifier_link`, extracted
+  into the pure `_linkable_identifiers` (label, tooltip, url) so the
+  GTK loop stays thin and the selection is unit-tested. One documented
+  superset: the lookup normalizes case where the old raw key match did
+  not, identical for real Calibre data since upstream lowercases types
+  on write. Labels, URLs, and tooltips are unchanged.
+
+Not taken: the optional `strip_html(keep_paragraphs=True)` growth --
+the local `_clean_html` keeps its v1.7.0 render-parity waiver, and no
+lane asked for the family growth. Suite 100 green.
+
+The Flatpak gate lands with the release (Brandon's 2026-10-02
+pip-floor decision): the install floor drops to Python 3.13+, and the
+manifest's cquarry pin moves to v1.25.0+py313.1 -- cquarry's
+compat-py313 branch synced forward through the 1.25 line (a +local
+version that never publishes) -- so a Flatpak build carries all four
+adopted helpers again. Hermitage's own manifest tag pin catches up to
+this release (v1.8.4 -> v1.8.6; the 1.8.5 release had skipped it). The
+cquarry floor statement in CLAUDE.md moves 1.18 -> 1.25.
+
 # Hermitage — Patch Notes
 
 ## Flatpak-manifest patch (2026-09-15, cquarry blitz lane under grant #117)

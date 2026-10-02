@@ -440,13 +440,20 @@ construction), so the lane's open work is small and named:
       dimension; Calibre's GUI has it, Hermitage does not.
 - [ ] **Export respects the current view** (Phase 17 slot, now committed): ~20 lines
       reusing export_books verbatim.
-- [ ] **cquarry adoption debts** (from cquarry's re-homed ledger, 2026-09-29): adopt
-      `get_annotations_decoded()` in `codex.py:_annotation_line` (codex.py:201-226;
-      the cquarry side shipped 1.23.0); adopt the ordered-VL-names and unpiped-author
-      helpers when cquarry Phase 16 promotes them; the optional
-      `strip_html(keep_paragraphs=True)` growth rides cquarry Phase 16 only if Codex
-      wants one HTML definition in the family (the local `_clean_html` stays under
-      the v1.7.0 render-parity waiver until then).
+- [x] **cquarry adoption debts** (from cquarry's re-homed ledger, 2026-09-29):
+      all four shipped in 1.8.6 against cquarry 1.25.0 (2026-10-02).
+      `get_annotations_decoded()` now feeds `codex.py:_annotation_line` (the
+      raw dict-or-string `annot_data` handling retired; the string branch was
+      defense against a payload shape upstream's json.dumps writer cannot
+      produce -- zero non-JSON rows in the real library, verified 2026-10-02;
+      annotation notes stay unrendered, as shipped), the sidebar orders through
+      `ordered_virtual_library_names` (the name set stays the worker
+      snapshot's), `load_library` flattens pipes through `unpipe_author`, and
+      the Codex's identifier buttons select through cquarry's canonical
+      `identifier_link` (extracted into the pure `_linkable_identifiers`).
+      The optional `strip_html(keep_paragraphs=True)` growth was NOT taken:
+      the local `_clean_html` keeps the v1.7.0 render-parity waiver, and no
+      lane asked for the family growth.
 - The remaining Phase 17 slots (Recently Added shelf row, cover-size preference,
   cache-management row, random-discover, export-on-worker-thread) stay green-light
   slots; the program does not commit them.
