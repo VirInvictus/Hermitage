@@ -257,21 +257,19 @@ class TestReadingLines(unittest.TestCase):
         self.assertEqual(_progress_line("x", 1.0), "100%  \u00b7  x")
 
     def test_annotation_line_highlight(self):
-        line = _annotation_line(
-            {"annot_type": "highlight", "annot_data": {"text": "wise"}}
-        )
+        # Decoded rows (cquarry's get_annotations_decoded view, the 1.9.0
+        # adoption): kind/text/title already lifted from the payload.
+        line = _annotation_line({"kind": "highlight", "text": "wise"})
         self.assertEqual(line, "Highlight: \u201cwise\u201d")
 
     def test_annotation_line_bookmark_title(self):
-        line = _annotation_line(
-            {"annot_type": "bookmark", "annot_data": {"title": "Ch. 5"}}
-        )
+        line = _annotation_line({"kind": "bookmark", "title": "Ch. 5"})
         self.assertEqual(line, "Bookmark: Ch. 5")
 
     def test_annotation_line_fallbacks(self):
         # No text/title: the bare kind; no kind either: nothing to show.
-        self.assertEqual(_annotation_line({"annot_type": "note"}), "Note")
-        self.assertIsNone(_annotation_line({"annot_data": {"text": "  "}}))
+        self.assertEqual(_annotation_line({"kind": "note"}), "Note")
+        self.assertIsNone(_annotation_line({"text": "  "}))
 
 
 class TestFindFormatFile(unittest.TestCase):

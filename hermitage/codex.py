@@ -199,23 +199,23 @@ def _progress_line(device: str, frac: float) -> str:
 
 
 def _annotation_line(note: dict) -> str | None:
-    """One annotations-table row -> a display line (pure).
+    """One decoded annotation row -> a display line (pure).
 
-    annot_data is Calibre's decoded JSON payload: highlights and notes
-    carry ``text`` (rendered quoted), bookmarks carry ``title``; with
-    neither, the row renders as its bare kind, or None when it has
-    nothing at all to show.
+    Rows come from cquarry's decoded renderer view (``get_annotations_
+    decoded``, consumed via database.get_annotations since 1.9.0):
+    highlights carry ``text`` (rendered quoted), bookmarks carry
+    ``title``; with neither, the row renders as its bare kind, or None
+    when it has nothing at all to show. The raw-``annot_data`` handling
+    this used to do (dict-or-string) lives in cquarry's decode now; the
+    string branch was defense against a payload shape upstream's
+    json.dumps writer cannot produce (zero non-JSON rows in the real
+    library, verified 2026-10-02). Annotation ``notes`` stay unrendered,
+    as shipped.
     """
-    raw_kind = note.get("annot_type")
+    raw_kind = note.get("kind")
     kind = str(raw_kind).capitalize() if raw_kind else ""
-    data = note.get("annot_data")
-    text = None
-    title = None
-    if isinstance(data, dict):
-        text = data.get("text")
-        title = data.get("title")
-    elif isinstance(data, str):
-        text = data
+    text = note.get("text")
+    title = note.get("title")
     if isinstance(text, str) and text.strip():
         body = f"“{text.strip()}”"
     elif isinstance(title, str) and title.strip():

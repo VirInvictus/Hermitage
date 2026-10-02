@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cquarry.db import CalibreDB
+from cquarry.helpers import unpipe_author
 
 
 @dataclass(slots=True)
@@ -286,9 +287,10 @@ def load_library(db: CalibreDB | None = None) -> list[Book]:
     for b in db.get_all_books():
         # cquarry exposes authors/tags/formats as native lists (names with
         # literal commas survive intact). Calibre historically stored a comma
-        # inside author names as '|' (e.g. "Le Guin| Ursula K."); restore the
-        # comma for display.
-        authors_list = [a.strip().replace("|", ",") for a in (b["authors"] or [])]
+        # inside author names as '|' (e.g. "Le Guin| Ursula K."); the display
+        # restore is cquarry's promoted helper since 1.9.0 (render-identical:
+        # the strip stays ours, the replace is the helper's).
+        authors_list = [unpipe_author(a.strip()) for a in (b["authors"] or [])]
 
         book = Book(
             id=b["id"],
@@ -368,8 +370,15 @@ def load_vl_ui_state() -> dict:
 
 
 def get_annotations(book_id: int) -> list[dict]:
-    """E-reader highlights/bookmarks/notes recorded by Calibre's drivers."""
-    return get_cquarry_db().get_annotations(book_id)
+    """E-reader highlights/bookmarks recorded by Calibre's drivers.
+
+    Since 1.9.0 this is cquarry's decoded renderer view
+    (``get_annotations_decoded``, cquarry 1.23): rows carry ``kind``,
+    ``text``, ``notes`` and ``title`` already lifted from the JSON
+    payload, so consumers never re-learn ``annot_data``'s shape. The
+    roadmap's adoption debt (2026-09-29) retires here.
+    """
+    return get_cquarry_db().get_annotations_decoded(book_id)
 
 
 def get_reading_progress(book_id: int) -> float | None:

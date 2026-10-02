@@ -36,7 +36,6 @@ from hermitage.database import (
     load_saved_searches,
     load_user_categories,
     load_virtual_libraries,
-    load_vl_ui_state,
 )
 from hermitage.genres import GenreBrowser
 from hermitage.series import SeriesBrowser
@@ -1599,22 +1598,15 @@ class HermitageApp(Gtk.Application):
         # Synthetic "Recently Read" row — sentinel handled in _on_vl_activated
         listbox.append(self._make_vl_row("Recently Read", "__recent__"))
 
-        ui_state = load_vl_ui_state()
-        hidden = {str(h).lower() for h in ui_state.get("hidden", [])}
-        order = ui_state.get("order") or {}
-
-        def _vl_sort_key(name: str):
-            # Stored Calibre tab position first, then anything new alphabetically.
-            for k, pos in order.items():
-                if str(k).lower() == name.lower():
-                    try:
-                        return (0, float(pos), name.lower())
-                    except (TypeError, ValueError):
-                        return (1, 0.0, name.lower())
-            return (1, 0.0, name.lower())
-
-        visible = [n for n in win._vl_defs if n.lower() not in hidden]
-        for name in sorted(visible, key=_vl_sort_key):
+        # Calibre's own sidebar order via the promoted helper (1.9.0;
+        # this closure was its private copy): stored tab position first,
+        # hidden dropped, unknowns alphabetical. The name SET stays the
+        # worker snapshot's (win._vl_defs) because _on_vl_activated
+        # expands through those expressions; the pre-existing mixed read
+        # (ui state live, members from the snapshot) is unchanged.
+        visible = set(win._vl_defs)
+        ordered = get_cquarry_db().ordered_virtual_library_names()
+        for name in (n for n in ordered if n in visible):
             listbox.append(self._make_vl_row(name, name))
 
         listbox.select_row(all_row)

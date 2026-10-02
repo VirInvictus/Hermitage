@@ -473,10 +473,14 @@ class TestSavedSearchesAndUiState(_FixtureBase):
 class TestAnnotationsAndProgress(_FixtureBase):
     """Annotation extraction and reading-progress helpers."""
 
-    def test_get_annotations_decodes_payload(self):
+    def test_get_annotations_decoded_view(self):
+        # 1.9.0: the wrapper is cquarry's decoded renderer view --
+        # kind/text lifted from the payload, no raw annot_data.
         notes = database.get_annotations(1)
         self.assertEqual(len(notes), 1)
-        self.assertEqual(notes[0]["annot_data"], {"text": "wise"})
+        self.assertEqual(notes[0]["kind"], "highlight")
+        self.assertEqual(notes[0]["text"], "wise")
+        self.assertIsNone(notes[0]["title"])
         self.assertEqual(database.get_annotations(2), [])
 
     def test_get_reading_progress(self):
