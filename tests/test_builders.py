@@ -11,12 +11,12 @@ from pathlib import Path
 from unittest import mock
 
 from hermitage.codex import (
-    _IDENTIFIER_LINKS,
     CodexView,
     _annotation_line,
     _clean_html,
     _enum_color_hex,
     _find_format_file,
+    _linkable_identifiers,
     _ordered_formats,
     _progress_line,
 )
@@ -160,13 +160,32 @@ class TestCleanHtml(unittest.TestCase):
         self.assertEqual(_clean_html(raw), "First para.\n\nSecond para.\ntail\nmore")
 
 
-class TestIdentifierLinks(unittest.TestCase):
-    def test_formats_produce_urls(self):
-        for key, (label, fmt) in _IDENTIFIER_LINKS.items():
-            with self.subTest(key=key):
-                url = fmt.format("VALUE")
-                self.assertIn("VALUE", url)
-                self.assertTrue(label)
+class TestLinkableIdentifiers(unittest.TestCase):
+    """The pure selector behind the Codex's identifier buttons (1.9.0:
+    the local table retired onto cquarry's canonical IDENTIFIER_LINKS)."""
+
+    def test_known_types_link(self):
+        rows = _linkable_identifiers({"isbn": "9781841499789", "doi": "10.1/x"})
+        self.assertEqual(
+            rows,
+            [
+                (
+                    "Open Library",
+                    "Open Library (isbn: 9781841499789)",
+                    "https://openlibrary.org/isbn/9781841499789",
+                ),
+                ("DOI", "DOI (doi: 10.1/x)", "https://doi.org/10.1/x"),
+            ],
+        )
+
+    def test_unknown_types_and_empty_values_produce_nothing(self):
+        self.assertEqual(_linkable_identifiers({"kobo": "slug", "lcc": "x"}), [])
+        self.assertEqual(_linkable_identifiers({"isbn": ""}), [])
+        self.assertEqual(_linkable_identifiers({}), [])
+
+    def test_type_lookup_normalizes_case(self):
+        rows = _linkable_identifiers({"ISBN": "9781841499789"})
+        self.assertEqual(len(rows), 1)
 
 
 class TestEnumColorFor(unittest.TestCase):

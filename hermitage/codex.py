@@ -13,7 +13,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 
-from cquarry.helpers import normalize_rating
+from cquarry.helpers import identifier_link, normalize_rating
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from hermitage import widgets
@@ -115,27 +115,35 @@ _FORMAT_PRIORITY = ["EPUB", "PDF", "MOBI", "AZW3", "CBZ", "CBR", "DJVU", "TXT"]
 # Identifier → external URL map
 # ---------------------------------------------------------------------------
 #
-# Calibre stores book identifiers as (type, value) tuples. We render them as
-# "Find this book on …" link buttons in the Codex; only types we know how to
-# turn into a URL get a button. Display label first, URL formatter second —
-# the formatter receives the raw value with no escaping (every site we link
-# uses opaque ids or already-encoded paths).
+# Calibre stores book identifiers as (type, value) tuples, rendered as
+# "Find this book on …" link buttons in the Codex. Since 1.9.0 the table
+# is cquarry's canonical IDENTIFIER_LINKS (helpers.identifier_link,
+# adopted 2026-10-02): this file's private copy -- the table cquarry's
+# helper was promoted FROM -- is retired. The lookup normalizes case and
+# unknown types answer None, the same no-button answer this file has
+# always given them.
 
-_IDENTIFIER_LINKS: dict[str, tuple[str, str]] = {
-    "isbn": ("Open Library", "https://openlibrary.org/isbn/{}"),
-    "goodreads": ("Goodreads", "https://www.goodreads.com/book/show/{}"),
-    "google": ("Google Books", "https://books.google.com/books?id={}"),
-    "amazon": ("Amazon", "https://www.amazon.com/dp/{}"),
-    "asin": ("Amazon", "https://www.amazon.com/dp/{}"),
-    "mobi-asin": ("Amazon", "https://www.amazon.com/dp/{}"),
-    "barnesnoble": ("Barnes & Noble", "https://www.barnesandnoble.com/s/{}"),
-    "storygraph": ("StoryGraph", "https://app.thestorygraph.com/books/{}"),
-    "hardcover": ("Hardcover", "https://hardcover.app/books/{}"),
-    "fictiondb": ("FictionDB", "https://www.fictiondb.com/title/{}"),
-    "doi": ("DOI", "https://doi.org/{}"),
-    "url": ("Link", "{}"),
-    "uri": ("Link", "{}"),
-}
+
+def _linkable_identifiers(
+    identifiers: dict[str, str],
+) -> list[tuple[str, str, str]]:
+    """One book's identifiers -> (label, tooltip, url) per linked type.
+
+    Pure; the Codex's identifier buttons are a thin loop over this.
+    Empty values and types cquarry's canonical table does not know
+    produce nothing -- a button never hrefs the raw value.
+    """
+    out: list[tuple[str, str, str]] = []
+    for key, val in identifiers.items():
+        if not val:
+            continue
+        link = identifier_link(key, val)
+        if link is None:
+            continue
+        label, url = link
+        out.append((label, f"{label} ({key}: {val})", url))
+    return out
+
 
 # Calibre's enumeration columns store ``display.enum_colors`` as a list of
 # color names (its editor offers Qt's color-name list) or hex strings,
@@ -599,23 +607,19 @@ class CodexView(Gtk.Box):
             self._tags_header.set_visible(False)
             self._tags_flow.set_visible(False)
 
-        # Identifiers — link buttons for the types we know how to URL-format
+        # Identifiers — link buttons for the types cquarry's canonical
+        # table knows (the selector is the pure _linkable_identifiers)
         self._clear_flow_box(self._idents_flow)
-        linkable = [
-            (key, val)
-            for key, val in book.identifiers.items()
-            if key in _IDENTIFIER_LINKS and val
-        ]
+        linkable = _linkable_identifiers(book.identifiers)
         if linkable:
             self._idents_header.set_visible(True)
             self._idents_flow.set_visible(True)
-            for key, val in linkable:
-                label, url_fmt = _IDENTIFIER_LINKS[key]
+            for label, tooltip, url in linkable:
                 btn = Gtk.Button(label=label)
                 btn.add_css_class("codex-tag-pill")
                 btn.add_css_class("codex-link-btn")
-                btn.set_tooltip_text(f"Open {label} ({key}: {val})")
-                btn.connect("clicked", self._on_identifier_clicked, url_fmt.format(val))
+                btn.set_tooltip_text(f"Open {tooltip}")
+                btn.connect("clicked", self._on_identifier_clicked, url)
                 self._idents_flow.append(btn)
         else:
             self._idents_header.set_visible(False)
