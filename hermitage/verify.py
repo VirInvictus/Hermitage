@@ -32,9 +32,11 @@ def verify_library():
         if b.has_cover:
             # Canonical cover resolution (cquarry get_cover_path with the
             # Book wrapper's unverified semantics): the catalogued cover.jpg
-            # path, checked on disk here. A cover.png-only book still counts
-            # as missing, exactly as the hardcoded check did — flagged in the
-            # 1.7.0 patchnotes as a known gap, not silently changed.
+            # path, checked on disk here. That stat pattern is cover.jpg-only
+            # by construction, and cquarry 1.28.3 made the whole reader agree
+            # (Calibre reads only COVER_FILE_NAME), so a legacy png-only book
+            # counts as missing — the GUI's own answer; a set_cover rewrite
+            # at the same book heals it.
             cover = b.cover_path
             if cover is not None and cover.is_file():
                 cover_ok += 1

@@ -80,11 +80,16 @@ def summarize(books: list[Book], db=None) -> LibrarySummary:
     its cover check goes through `_cover_file_missing` so a caller on a
     non-UI thread survives the shared singleton instead of hanging the
     window.
-    Known, intended difference on the db path: the cover row merges
-    cquarry's split predicates (flag-less OR missing file), which adopts
-    canonical resolution — a cover.png-only book counts as covered. The
-    identifiers row runs through cquarry.integrity.find_identifierless on
-    the db path (1.8.2); only the db-less fallback keeps its inline check.
+    The cover row used to be a known, intended difference: before
+    cquarry 1.28.3 the db path's verified resolution fell back to
+    cover.png and counted a legacy png-only book as covered, while this
+    fallback (unverified canonical cover.jpg, then a stat) counted it
+    missing. cquarry 1.28.3 dropped the fallback (Calibre reads only
+    COVER_FILE_NAME), so on cquarry >= 1.28.3 both paths agree: a
+    png-only book counts as not covered either way. The identifiers row
+    runs through
+    cquarry.integrity.find_identifierless on the db path (1.8.2); only
+    the db-less fallback keeps its inline check.
     """
     tag_counter: Counter[str] = Counter()
     author_counter: Counter[str] = Counter()

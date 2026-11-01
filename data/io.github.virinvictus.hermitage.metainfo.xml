@@ -107,6 +107,15 @@
   </screenshots>
 
   <releases>
+    <release version="1.8.7" date="2026-11-01">
+      <description>
+        <p>Docs truth for the cquarry 1.28.3 cover contract: cover reads
+        are cover.jpg-only (Calibre's own rule), and a legacy png-only
+        book now resolves coverless everywhere. No code change; the
+        verify and Insights documentation and the README now state the
+        contract instead of the retired png-fallback semantics.</p>
+      </description>
+    </release>
     <release version="1.8.6" date="2026-10-02">
       <description>
         <p>The cquarry 1.25 consumer wave: annotations render through

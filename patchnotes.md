@@ -1,4 +1,42 @@
 # Hermitage — Patch Notes
+## v1.8.7 (2026-11-01)
+
+### The cquarry 1.28.3 cover contract: docs truth for the jpg-only reads
+
+cquarry 1.28.3 aligned both sides of its cover surface with Calibre
+itself, which reads only `cover.jpg` (`COVER_FILE_NAME`): the reader's
+`cover.png` fallback is gone, so a legacy png-only book (writable only
+by cquarry <= 1.28.2 `set_cover`; Calibre never creates one) now
+resolves coverless, the GUI's own answer. Hermitage needed no code
+change: resolution flows through `get_cover_path` in exactly two
+memoized spots (`database.py`, the shared-singleton read and the load
+worker's pre-resolve), both None-tolerant, and every consumer already
+degrades to the placeholder (grid cell, Codex hero, color-extraction
+skip, cache sweep). This release refreshes the three texts that pinned
+the removed semantics and records the new contract.
+
+- **`verify.py`'s cover comment** no longer cites the retired 1.7.0
+  known-gap rationale; it states the contract (cover.jpg-only since
+  cquarry 1.28.3) and the heal (one `set_cover` rewrite puts the same
+  bytes at `cover.jpg`). The MISSING COVER FILES count grows by the
+  png-only books; that is truthful, and cquarry's
+  `find_missing_cover_files` lists exactly the affected ids.
+- **`insights.py`'s summarize docstring** recorded a db-path/db-less
+  difference that no longer exists: before cquarry 1.28.3 the db
+  path's verified resolution fell back to cover.png and counted a
+  legacy png-only book as covered, while Hermitage's own
+  unverified-canonical-path-plus-stat pattern already counted it
+  missing. With the fallback gone (Calibre reads only
+  `COVER_FILE_NAME`) both paths agree: a png-only book counts as not
+  covered either way.
+- **README's hermitage-verify blurb** states the contract instead of
+  the old "by design" framing.
+- **The Flatpak pin stays at the 1.25-line compat commit.** The
+  manifest's standing rule bumps the pin with each consumer sync; this
+  release adopts no new cquarry API, and cquarry's compat-py313 branch
+  has not synced forward to 1.28.3 yet (no such tag exists). The pin
+  bumps when that sync lands, cquarry-side.
+
 ## v1.8.6 (2026-10-02)
 
 ### The cquarry 1.25 consumer wave: the four adoption debts retire

@@ -50,7 +50,7 @@ A Flatpak manifest (`data/io.github.virinvictus.hermitage.yml`, GNOME 50 runtime
 
 ### Library verification
 
-`hermitage-verify` is a standalone CLI that validates every book's directory path and cover resolution against the catalog (books whose catalog row lists no format are reported; it does not stat format files on disk, and png-only covers count as missing by design). It also benchmarks path resolution time.
+`hermitage-verify` is a standalone CLI that validates every book's directory path and cover resolution against the catalog (books whose catalog row lists no format are reported; it does not stat format files on disk, and cover resolution is cover.jpg-only since cquarry 1.28.3, so a legacy png-only book counts as missing). It also benchmarks path resolution time.
 
 ## Tag structure
 

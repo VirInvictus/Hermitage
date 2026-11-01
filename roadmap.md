@@ -454,9 +454,20 @@ construction), so the lane's open work is small and named:
       The optional `strip_html(keep_paragraphs=True)` growth was NOT taken:
       the local `_clean_html` keeps the v1.7.0 render-parity waiver, and no
       lane asked for the family growth.
+- [x] **The cquarry 1.28.3 cover contract** (the png-only-cover gap's
+      resolution upstream, 2026-11-01): cquarry's reads are cover.jpg-only
+      now, matching Calibre's own `COVER_FILE_NAME` rule, so a legacy
+      png-only book resolves coverless everywhere (the GUI's own answer).
+      Hermitage needed no code change; 1.8.7 refreshes the three texts
+      that pinned the old semantics (verify.py's gap comment,
+      insights.py's summarize docstring, README's hermitage-verify
+      blurb). The Flatpak pin stays at the 1.25-line compat commit until
+      compat-py313 syncs forward to 1.28.3 (cquarry-side; no new API
+      adopted here).
 - The remaining Phase 17 slots (Recently Added shelf row, cover-size preference,
   cache-management row, random-discover, export-on-worker-thread) stay green-light
   slots; the program does not commit them.
 - Declined under the program, unchanged: multi-library switching, OPDS export (Carrel
   serves it), reading-status writes (the read-mostly waiver), the png-only-cover
-  placeholder (recorded deliberate gap surfaced to the cquarry lane).
+  placeholder (recorded deliberate gap surfaced to the cquarry lane; resolved
+  there by 1.28.3's jpg-only reads, the 1.8.7 bullet above).
