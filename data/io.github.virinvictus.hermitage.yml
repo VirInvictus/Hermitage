@@ -188,8 +188,13 @@ modules:
         ${FLATPAK_DEST}/share/metainfo/io.github.virinvictus.hermitage.metainfo.xml
     sources:
       # The release tag, per the Flathub requirement that builders fetch
-      # clean tagged source (type: dir cannot work there). Forward-only
-      # tag policy: this reference never moves.
+      # clean tagged source (type: dir cannot work there). The reference
+      # moves forward to a newer release tag when the packaging needs it
+      # (existing tags themselves are never re-pointed): leaving it at
+      # v1.8.4 through 1.8.7 left the manifest UNBUILDABLE, because the
+      # v1.8.4 tree declares requires-python >=3.14 against this runtime's
+      # 3.13 (verified by a failed real build on 2026-11-01). v1.8.8 moves
+      # it as part of the cquarry pin bump.
       - type: git
         url: https://github.com/VirInvictus/Hermitage.git
-        tag: v1.8.4
+        tag: v1.8.8

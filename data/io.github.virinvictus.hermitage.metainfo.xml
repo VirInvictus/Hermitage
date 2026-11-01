@@ -110,8 +110,10 @@
     <release version="1.8.8" date="2026-11-01">
       <description>
         <p>The Flatpak build now pins cquarry v1.28.3+py313.1 (the
-        compat branch synced forward to the cover.jpg-only contract).
-        No application changes.</p>
+        compat branch synced forward to the cover.jpg-only contract) and
+        fetches Hermitage's own v1.8.8 tag, fixing a manifest that could
+        not build on the GNOME 50 runtime since 1.8.4. No application
+        changes.</p>
       </description>
     </release>
     <release version="1.8.7" date="2026-11-01">

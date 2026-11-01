@@ -5,15 +5,24 @@
 
 cquarry's compat-py313 branch synced forward to 1.28.3 (the branch
 merges main through the cover.jpg-only fix and re-applies the 3.13
-deltas; tagged v1.28.3+py313.1, suite 710 green on Python 3.13.15,
-the GNOME 50 runtime's exact Python), and this release moves the
-Flatpak manifest's pinned cquarry commit from the 1.25-line c3c2cc9
-to that tag's 960a3df. The pending item 1.8.7's notes recorded is
-closed: a Flatpak build now resolves covers cover.jpg-only like a dev
-install and Calibre itself, and the Insights db-path counting agrees
-with the db-less fallback on every channel. No Hermitage code changed;
-the only diff is the manifest pin, its comment, and the release
-bookkeeping.
+deltas; tagged v1.28.3+py313.1, suite 710 green on Python 3.13.15 and
+3.14.8), and this release moves the Flatpak manifest's pinned cquarry
+commit from the 1.25-line c3c2cc9 to that tag's 960a3df. The pending
+item 1.8.7's notes recorded is closed: a Flatpak build now resolves
+covers cover.jpg-only like a dev install and Calibre itself, and the
+Insights db-path counting agrees with the db-less fallback on every
+channel. No Hermitage code changed.
+
+- **The manifest's Hermitage source tag moves to v1.8.8**, retiring the
+  "this reference never moves" note: a real flatpak-builder run against
+  the pinned v1.8.4 tree FAILS on the GNOME 50 runtime ("requires a
+  different Python: 3.13.16 not in '>=3.14'"), so the manifest had been
+  unbuildable since the source tag froze there in 1.8.4. The reference
+  now moves forward with Flatpak-relevant releases; existing tags stay
+  re-point-proof. The release's own verification build runs against
+  this tag.
+- The only other diff is the cquarry pin, its comment, and the release
+  bookkeeping.
 
 ## v1.8.7 (2026-11-01)
 
