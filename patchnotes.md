@@ -1,4 +1,20 @@
 # Hermitage — Patch Notes
+## v1.8.8 (2026-11-01)
+
+### The Flatpak carries the 1.28.3 contract: the compat sync landed
+
+cquarry's compat-py313 branch synced forward to 1.28.3 (the branch
+merges main through the cover.jpg-only fix and re-applies the 3.13
+deltas; tagged v1.28.3+py313.1, suite 710 green on Python 3.13.15,
+the GNOME 50 runtime's exact Python), and this release moves the
+Flatpak manifest's pinned cquarry commit from the 1.25-line c3c2cc9
+to that tag's 960a3df. The pending item 1.8.7's notes recorded is
+closed: a Flatpak build now resolves covers cover.jpg-only like a dev
+install and Calibre itself, and the Insights db-path counting agrees
+with the db-less fallback on every channel. No Hermitage code changed;
+the only diff is the manifest pin, its comment, and the release
+bookkeeping.
+
 ## v1.8.7 (2026-11-01)
 
 ### The cquarry 1.28.3 cover contract: docs truth for the jpg-only reads

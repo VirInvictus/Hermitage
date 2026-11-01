@@ -463,7 +463,8 @@ construction), so the lane's open work is small and named:
       insights.py's summarize docstring, README's hermitage-verify
       blurb). The Flatpak pin stays at the 1.25-line compat commit until
       compat-py313 syncs forward to 1.28.3 (cquarry-side; no new API
-      adopted here).
+      adopted here). *(The sync landed the same day: v1.28.3+py313.1,
+      pin moved to its 960a3df in 1.8.8.)*
 - The remaining Phase 17 slots (Recently Added shelf row, cover-size preference,
   cache-management row, random-discover, export-on-worker-thread) stay green-light
   slots; the program does not commit them.

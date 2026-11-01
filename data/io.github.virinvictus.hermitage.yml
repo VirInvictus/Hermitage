@@ -150,11 +150,11 @@ modules:
     sources:
       - type: git
         url: https://github.com/VirInvictus/cquarry.git
-        commit: c3c2cc9d178e19727b7422f7ada531b251f759be
-        # cquarry v1.25.0+py313.1 (compat-py313 synced forward through the
-        # 1.25 line for the 1.8.6 helper adoptions; the 3.13 floor for this
-        # runtime's Python, recorded decision #81 + the 2026-10-02 pip-floor
-        # decision; tag verbatim-verified)
+        commit: 960a3dfa7a96ea3f9f6a89f37219c56133557622
+        # cquarry v1.28.3+py313.1 (compat-py313 synced forward through the
+        # 1.28.3 line, the cover.jpg-only contract 1.8.7's docs record; the
+        # 3.13 floor for this runtime's Python, recorded decision #81 + the
+        # 2026-10-02 pip-floor decision; tag verbatim-verified)
 
   # Hermitage itself + its desktop / icon / metainfo data files.
   - name: hermitage
