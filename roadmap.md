@@ -253,13 +253,18 @@ template.
 
 ## New findings 2026-09-12 (six-lens full audit; detail: audit/FULL-AUDIT-2026-09-12.md, Wave 16)
 
-- [ ] **HIGH: _find_format_file recurses infinitely when no format file
+- [x] **HIGH: _find_format_file recurses infinitely when no format file
       resolves** (codex.py:147-162: the for loop rebinds the fmt
       parameter, so the retry gate tests the leaked value; RecursionError
       on every Read click for books with unresolvable files; zero test
       coverage). Keep the requested name separate and gate the retry on
-      it; the dead fallback loops below fold into the fix.
-- [ ] **Lifecycle/thread fixes:** the enum-pill provider's
+      it; the dead fallback loops below fold into the fix. *(Fixed
+      v1.8.4, commit a55205d: requested saved before the loop, the retry
+      call runs with fmt=None and cannot re-enter the gate, four
+      regression tests including two that RecursionError against the old
+      code; ticked in the 2026-09-13 final audit below. Re-verified live
+      2026-11-13 during the sibling-repo ring audit.)*
+- [x] **Lifecycle/thread fixes:** the enum-pill provider's
       load_from_string REPLACES earlier rules (multi-value enum columns
       keep only the last color - accumulate and reload, or one provider
       per class); the portal SettingChanged handler applies scheme == 1
@@ -270,12 +275,21 @@ template.
       worker like Insights); connect shutdown to the five
       ThreadPoolExecutors (quit can hang draining the warm queue); the
       texture LRU is entry-capped (~1.6GB at 2x) - cap by bytes.
-- [ ] **The README's annotations/reading-progress claim was never
+      *(Superseded by the 2026-09-13 final audit below: all six items
+      fixed and ticked there at v1.8.4 -- worker-thread load with
+      broadened handling, memoized cover paths, five executors cancelled
+      on quit, byte-bounded texture LRU, and the portal-scheme and
+      enum-pill accumulation fixes from the live smoke run.)*
+- [x] **The README's annotations/reading-progress claim was never
       built:** get_annotations/get_reading_progress are wrapped, tested,
       and have zero UI call sites; the roadmap even says "already rendered
       in the Codex". Either wire the Codex section + the cover progress
       bar (the recorded "maybe" - cheap, the read surface exists) or
       reword the README/roadmap to "exposed for future UI".
+      *(Superseded by the 2026-09-13 final audit below: wired v1.8.5 per
+      Brandon's ruling -- the Reading Progress and Annotations sections
+      render in the Codex, verified on the live session -- so the README
+      claim is true.)*
 - [ ] **Docs sweep:** cquarry floor >=1.8 -> >=1.17/1.18 in CLAUDE.md +
       spec (refresh_library/find_identifierless need 1.17); the AppStream
       screenshots TODO is stale (gallery.png exists - add the block);
